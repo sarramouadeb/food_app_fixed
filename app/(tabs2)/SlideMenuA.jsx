@@ -46,10 +46,10 @@ const colors = ["#7B9DD2", "#DAD4DE", "#BBB4DA", "#7B9DD2", "#70C7C6"];
     { title: "Mon Profil", icon: "account-outline", action: () => router.push("ProfileAsso") },
     { title: "Notifications", icon: "bell-outline", action: () => router.push("NotificationsA") },
     { title: "Rapports", icon: "card-text-outline", action: () => router.push("Reports") },
-    { title: "À propos", icon: "information-outline", action: () => router.push("AboutUs") },
-    { title: "FAQ", icon: "help-circle-outline", action: () => router.push("FAQ") },
+    { title: "À propos", icon: "information-outline", action: () => router.push("../(tabs)/About") },
+    { title: "FAQ", icon: "help-circle-outline", action: () => router.push("../(tabs)/faq") },
     { isDivider: true }, 
-    { title: "Déconnexion", icon: "logout", action: () => router.push("../CommunScreens/Screen3.jsx") }
+    { title: "Déconnexion", icon: "logout", action: () => router.push("../CommunScreens/Screen3") }
   ];
 
   return (

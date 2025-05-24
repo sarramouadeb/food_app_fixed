@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Animated,
   ImageBackground,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useUserContext } from "../../context/UserContext";
@@ -25,28 +26,81 @@ export default function ReserverAnnonce() {
   const route = useRoute();
   const navigation = useNavigation();
   const { userDetail } = useUserContext();
-  const { annonce, isModification } = route.params;
+  const { annonce, isModification, isActeBenevole } = route.params || {};
 
-  // Parse et valide les données de l'annonce
-  const parsedAnnonce = React.useMemo(() => {
+  // Vérification initiale des paramètres
+  if (!annonce) {
+    return (
+      <ImageBackground 
+        source={require('../../assets/images/cover.png')}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Aucune donnée à afficher</Text>
+          <TouchableOpacity 
+            style={styles.errorButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.errorButtonText}>Retour</Text>
+          </TouchableOpacity>
+        </View>
+      </ImageBackground>
+    );
+  }
+
+  // Parse et valide les données
+  const parsedData = React.useMemo(() => {
     try {
       const data = typeof annonce === 'string' ? JSON.parse(annonce) : annonce;
-      return {
-        ...data,
-        userId: data.userId || data.restaurantId || '',
-        restaurantName: data.restaurantName || '',
-        restaurantPhone: data.restaurantPhone || '',
-        restaurantVille: data.restaurantVille || '',
-        offre: data.offre || '',
-        type: data.type || '',
-        quantite: data.quantite || '',
-        id: data.id || '',
-        createdAt: data.createdAt || serverTimestamp(),
-        expirationDate: data.expirationDate || new Date()
-      };
+      
+      if (isActeBenevole) {
+        return {
+          id: data.id || '',
+          besoinContent: data.besoinContent || '',
+          aidetype: data.aidetype || '',
+          quantite: data.quantite || '',
+          besoinEtat: data.besoinEtat || '',
+          restaurantName: data.restaurantName || '',
+          restaurantPhone: data.restaurantPhone || '',
+          restaurantVille: data.restaurantVille || '',
+          associationCible: data.associationCible || '',
+          associationId: data.associationId || userDetail?.uid || '',
+          dateRecuperation: data.dateRecuperation || new Date(),
+          createdAt: data.createdAt || serverTimestamp(),
+          status: data.status || "en attente"
+        };
+      } else {
+        return {
+          userId: data.userId || data.restaurantId || '',
+          restaurantName: data.restaurantName || '',
+          restaurantPhone: data.restaurantPhone || '',
+          restaurantVille: data.restaurantVille || '',
+          offre: data.offre || '',
+          type: data.type || '',
+          quantite: data.quantite || '',
+          id: data.id || '',
+          createdAt: data.createdAt || serverTimestamp(),
+          expirationDate: data.expirationDate || new Date()
+        };
+      }
     } catch (error) {
-      console.error("Erreur de parsing de l'annonce:", error);
-      return {
+      console.error("Erreur de parsing des données:", error);
+      return isActeBenevole ? {
+        id: '',
+        besoinContent: '',
+        aidetype: '',
+        quantite: '',
+        besoinEtat: '',
+        restaurantName: '',
+        restaurantPhone: '',
+        restaurantVille: '',
+        associationCible: '',
+        associationId: userDetail?.uid || '',
+        dateRecuperation: new Date(),
+        createdAt: serverTimestamp(),
+        status: "en attente"
+      } : {
         userId: '',
         restaurantName: '',
         restaurantPhone: '',
@@ -59,14 +113,14 @@ export default function ReserverAnnonce() {
         expirationDate: new Date()
       };
     }
-  }, [annonce]);
+  }, [annonce, isActeBenevole, userDetail]);
 
-  // États pour la gestion des dates et du chargement
+  // États pour la gestion des dates
   const [date, setDate] = useState(() => {
-    if (isModification && parsedAnnonce.dateRecuperation) {
-      return parsedAnnonce.dateRecuperation.seconds 
-        ? new Date(parsedAnnonce.dateRecuperation.seconds * 1000)
-        : new Date(parsedAnnonce.dateRecuperation);
+    if (isModification && parsedData.dateRecuperation) {
+      return parsedData.dateRecuperation.seconds 
+        ? new Date(parsedData.dateRecuperation.seconds * 1000)
+        : new Date(parsedData.dateRecuperation);
     }
     return new Date();
   });
@@ -74,7 +128,6 @@ export default function ReserverAnnonce() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isConfirmLoading, setIsConfirmLoading] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const slideAnim = useRef(new Animated.Value(-width)).current;
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -84,52 +137,69 @@ export default function ReserverAnnonce() {
     minute: "2-digit",
   });
 
-  const handleConfirmReservation = async () => {
-    if (!parsedAnnonce.userId) {
-      alert("Erreur: Identifiant du restaurant manquant");
-      return;
-    }
-
-    if (!userDetail?.uid) {
-      alert("Erreur: Identifiant de l'association manquant");
-      return;
-    }
-
+  const handleConfirm = async () => {
     try {
       setIsConfirmLoading(true);
       
-      const reservationData = {
-        offre: parsedAnnonce.offre,
-        type: parsedAnnonce.type,
-        quantite: parsedAnnonce.quantite,
-        restaurantId: parsedAnnonce.userId,
-        restaurantName: parsedAnnonce.restaurantName,
-        restaurantPhone: parsedAnnonce.restaurantPhone,
-        restaurantVille: parsedAnnonce.restaurantVille,
-        associationId: userDetail.uid,
-        associationName: userDetail.name || '',
-        dateRecuperation: date,
-        createdAt: serverTimestamp(),
-        status: "en attente",
-        annonceCreationTimestamp: parsedAnnonce.createdAt,
-        expirationDate: parsedAnnonce.expirationDate,
-        originalAnnonceId: parsedAnnonce.id 
-      };
+      if (isActeBenevole) {
+        // Mise à jour de l'acte bénévole
+        const acteData = {
+          besoinContent: parsedData.besoinContent,
+          aidetype: parsedData.aidetype,
+          quantite: parsedData.quantite,
+          besoinEtat: parsedData.besoinEtat,
+          restaurantName: parsedData.restaurantName,
+          restaurantPhone: parsedData.restaurantPhone,
+          restaurantVille: parsedData.restaurantVille,
+          associationCible: parsedData.associationCible,
+          associationId: parsedData.associationId,
+          dateRecuperation: date, // Utilise la nouvelle date
+          status: parsedData.status || "en attente",
+          updatedAt: serverTimestamp()
+        };
 
-      const reservationId = isModification 
-        ? parsedAnnonce.id 
-        : `${parsedAnnonce.id}_${userDetail.uid}`;
-      
-      await setDoc(doc(db, "reservations", reservationId), reservationData);
-      
-      // Redirection vers EchangesA avec mise en évidence
-      navigation.navigate("EchangesA", { 
-        highlightReservation: reservationId,
-        tab: "reservations",
-        refresh: Date.now() // Force le rafraîchissement
-      });
+        // Utilise merge: true pour ne pas écraser les autres champs
+        await setDoc(doc(db, "aides", parsedData.id), acteData, { merge: true });
+        
+        // Redirige vers l'onglet actes avec rafraîchissement
+        navigation.navigate("EchangesA", { 
+          tab: "actes",
+          refresh: Date.now()
+        });
+      } else {
+        // Gestion des réservations
+        const reservationData = {
+          offre: parsedData.offre,
+          type: parsedData.type,
+          quantite: parsedData.quantite,
+          restaurantId: parsedData.userId,
+          restaurantName: parsedData.restaurantName,
+          restaurantPhone: parsedData.restaurantPhone,
+          restaurantVille: parsedData.restaurantVille,
+          associationId: userDetail.uid,
+          associationName: userDetail.name || '',
+          dateRecuperation: date,
+          createdAt: serverTimestamp(),
+          status: "en attente",
+          annonceCreationTimestamp: parsedData.createdAt,
+          expirationDate: parsedData.expirationDate,
+          originalAnnonceId: parsedData.id 
+        };
+
+        const reservationId = isModification 
+          ? parsedData.id 
+          : `${parsedData.id}_${userDetail.uid}`;
+        
+        await setDoc(doc(db, "reservations", reservationId), reservationData);
+        
+        navigation.navigate("EchangesA", { 
+          highlightReservation: reservationId,
+          tab: "reservations",
+          refresh: Date.now()
+        });
+      }
     } catch (error) {
-      console.error("Erreur lors de la réservation:", error);
+      console.error("Erreur lors de la mise à jour:", error);
       alert(`Erreur: ${error.message}`);
     } finally {
       setIsConfirmLoading(false);
@@ -160,14 +230,16 @@ export default function ReserverAnnonce() {
         </TouchableWithoutFeedback>
       )}
       
-      <Animated.View style={[styles.mainContent]}>
+      <View style={styles.mainContent}>
         <View style={styles.header}>
           <TouchableOpacity onPress={toggleMenu}>
             <MaterialIcons name="menu" size={30} color="black" style={styles.menuIcon} />
           </TouchableOpacity>
 
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>{isModification ? "Modifier" : "Réservation"}</Text>
+            <Text style={styles.title}>
+              {isActeBenevole ? "Modifier acte" : (isModification ? "Modifier" : "Réservation")}
+            </Text>
           </View>
 
           <View style={[styles.avatar, { backgroundColor: colors[colorIndex] }]}>
@@ -175,113 +247,171 @@ export default function ReserverAnnonce() {
           </View>
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <View style={styles.textContainer}>
-            <Text style={styles.text}>
-              {isModification ? "Modifier réservation" : "Réservation d'annonce"}
-            </Text>
-          </View>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.contentWrapper}>
+            <View style={styles.textContainer}>
+              <Text style={styles.text}>
+                {isActeBenevole ? "Modifier acte bénévole" : 
+                 (isModification ? "Modifier réservation" : "Réservation d'annonce")}
+              </Text>
+            </View>
 
-          <View style={styles.form}>
-            <View style={styles.besoin}>
-              <Text style={styles.label}>Offre:</Text>
-              <View style={styles.inputContainerBesoin}>
-                <Text style={styles.input}>
-                  {parsedAnnonce.offre || "Non spécifié"}
-                </Text>
+            <View style={styles.form}>
+              {isActeBenevole ? (
+                <>
+                  <View style={styles.besoin}>
+                    <Text style={styles.label}>Besoin:</Text>
+                    <View style={styles.inputContainerBesoin}>
+                      <Text style={styles.input}>
+                        {parsedData.besoinContent || "Non spécifié"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.besoin}>
+                    <Text style={styles.label}>Type d'aide:</Text>
+                    <View style={styles.inputContainerBesoin}>
+                      <Text style={styles.input}>
+                        {parsedData.aidetype || "Non spécifié"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.besoin}>
+                    <Text style={styles.label}>Quantité:</Text>
+                    <View style={styles.inputContainerBesoin}>
+                      <Text style={styles.input}>
+                        {parsedData.quantite || "Non spécifié"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.besoin}>
+                    <Text style={styles.label}>État:</Text>
+                    <View style={styles.inputContainerBesoin}>
+                      <Text style={styles.input}>
+                        {parsedData.besoinEtat || "Non spécifié"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.besoin}>
+                    <Text style={styles.label}>Restaurant:</Text>
+                    <View style={styles.inputContainerBesoin}>
+                      <Text style={styles.input}>
+                        {parsedData.restaurantName || "Non spécifié"}
+                      </Text>
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.besoin}>
+                    <Text style={styles.label}>Offre:</Text>
+                    <View style={styles.inputContainerBesoin}>
+                      <Text style={styles.input}>
+                        {parsedData.offre || "Non spécifié"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.besoin}>
+                    <Text style={styles.label}>Type:</Text>
+                    <View style={styles.inputContainerBesoin}>
+                      <Text style={styles.input}>
+                        {parsedData.type || "Non spécifié"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.besoin}>
+                    <Text style={styles.label}>Quantité:</Text>
+                    <View style={styles.inputContainerBesoin}>
+                      <Text style={styles.input}>
+                        {parsedData.quantite || "Non spécifié"}
+                      </Text>
+                    </View>
+                  </View>
+                </>
+              )}
+
+              {/* Section modifiable pour la date et l'heure */}
+              <View style={styles.besoin}>
+                <Text style={styles.label}>Date de récupération *:</Text>
+                <TouchableOpacity 
+                  style={styles.inputContainerBesoin}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Text style={styles.input}>{formattedDate}</Text>
+                  <Icon name="calendar-number-outline" size={25} color="gray" style={styles.dropdownIcon} />
+                </TouchableOpacity>
               </View>
-            </View>
 
-            <View style={styles.besoin}>
-              <Text style={styles.label}>Type:</Text>
-              <View style={styles.inputContainerBesoin}>
-                <Text style={styles.input}>
-                  {parsedAnnonce.type || "Non spécifié"}
-                </Text>
+              <View style={styles.besoin}>
+                <Text style={styles.label}>Heure de récupération *:</Text>
+                <TouchableOpacity 
+                  style={styles.inputContainerBesoin}
+                  onPress={() => setShowTimePicker(true)}
+                >
+                  <Text style={styles.input}>{formattedTime}</Text>
+                  <Icon name="time-outline" size={25} color="gray" style={styles.dropdownIcon} />
+                </TouchableOpacity>
               </View>
-            </View>
 
-            <View style={styles.besoin}>
-              <Text style={styles.label}>Quantité:</Text>
-              <View style={styles.inputContainerBesoin}>
-                <Text style={styles.input}>
-                  {parsedAnnonce.quantite || "Non spécifié"}
-                </Text>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={date}
+                  mode="date"
+                  display="default"
+                  minimumDate={new Date()}
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(false);
+                    if (selectedDate) setDate(selectedDate);
+                  }}
+                />
+              )}
+              
+              {showTimePicker && (
+                <DateTimePicker
+                  value={date}
+                  mode="time"
+                  display="default"
+                  onChange={(event, selectedTime) => {
+                    setShowTimePicker(false);
+                    if (selectedTime) setDate(selectedTime);
+                  }}
+                />
+              )}
+
+              <View style={styles.btnContainer}>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.updateButton]}
+                  onPress={handleConfirm}
+                  disabled={isConfirmLoading}
+                >
+                  {isConfirmLoading ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={styles.actionButtonText}>
+                      {isModification || isActeBenevole ? "Mettre à jour" : "Confirmer"}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.cancelButton]}
+                  onPress={() => navigation.goBack()}
+                >
+                  <Text style={styles.actionButtonText}>Annuler</Text>
+                </TouchableOpacity>
               </View>
-            </View>
-
-            <View style={styles.besoin}>
-              <Text style={styles.label}>Date de récupération *:</Text>
-              <TouchableOpacity 
-                style={styles.inputContainerBesoin}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <Text style={styles.input}>{formattedDate}</Text>
-                <Icon name="calendar-number-outline" size={25} color="gray" style={styles.dropdownIcon} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.besoin}>
-              <Text style={styles.label}>Heure de récupération *:</Text>
-              <TouchableOpacity 
-                style={styles.inputContainerBesoin}
-                onPress={() => setShowTimePicker(true)}
-              >
-                <Text style={styles.input}>{formattedTime}</Text>
-                <Icon name="time-outline" size={25} color="gray" style={styles.dropdownIcon} />
-              </TouchableOpacity>
-            </View>
-
-            {showDatePicker && (
-              <DateTimePicker
-                value={date}
-                mode="date"
-                display="default"
-                minimumDate={new Date()}
-                onChange={(event, selectedDate) => {
-                  setShowDatePicker(false);
-                  if (selectedDate) setDate(selectedDate);
-                }}
-              />
-            )}
-            
-            {showTimePicker && (
-              <DateTimePicker
-                value={date}
-                mode="time"
-                display="default"
-                onChange={(event, selectedTime) => {
-                  setShowTimePicker(false);
-                  if (selectedTime) setDate(selectedTime);
-                }}
-              />
-            )}
-
-            <View style={styles.btnContainer}>
-              <TouchableOpacity
-                style={styles.confirmButton}
-                onPress={handleConfirmReservation}
-                disabled={isConfirmLoading}
-              >
-                {isConfirmLoading ? (
-                  <ActivityIndicator color="black" />
-                ) : (
-                  <Text style={styles.confirmButtonText}>
-                    {isModification ? "Mettre à jour" : "Confirmer"}
-                  </Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.annulerButton}
-                onPress={() => navigation.goBack()}
-              >
-                <Text style={styles.annulerButtonText}>Annuler</Text>
-              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
-      </Animated.View>
+      </View>
       
       <SlideMenuA
         isOpen={isMenuOpen}
@@ -310,15 +440,37 @@ const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
     zIndex: 1,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.8)',
+  },
+  errorText: {
+    fontSize: 18,
+    color: 'red',
+    marginBottom: 20,
+  },
+  errorButton: {
+    padding: 15,
+    backgroundColor: '#EAE5E5',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'black',
+  },
+  errorButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'black',
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 15,
-    paddingTop: 10,
-    marginBottom: 20,
+    paddingTop: 40,
+    marginBottom: 10,
   },
   avatar: {
     width: 50,
@@ -339,17 +491,16 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "black",
   },
-  titleContainer: {
-    backgroundColor: "#F4E6FD",
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
+  titleContainer: {},
   menuIcon: {
     marginRight: 10,
   },
   scrollContainer: {
-    paddingBottom: 20,
+    flexGrow: 1,
+    paddingBottom: 90,
+  },
+  contentWrapper: {
+    flex: 1,
   },
   textContainer: {
     backgroundColor: "#EAE5E5",
@@ -357,7 +508,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     alignSelf: "center",
     borderRadius: 20,
-    marginVertical: 20,
+    marginVertical: 15,
     borderWidth: 1,
   },
   text: {
@@ -366,7 +517,7 @@ const styles = StyleSheet.create({
     color: 'black',
   },
   form: {
-    backgroundColor: "white",
+    backgroundColor: "rgba(255,255,255,0.7)",
     borderRadius: 20,
     width: "90%",
     alignSelf: "center",
@@ -407,34 +558,23 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 20,
   },
-  confirmButton: {
-    backgroundColor: "#CBEFB6",
+  actionButton: {
     padding: 15,
-    borderRadius: 30,
-    flex: 1,
-    marginRight: 10,
+    borderRadius: 5,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: 'black',
-  },
-  annulerButton: {
-    backgroundColor: "#FF7373",
-    padding: 15,
-    borderRadius: 30,
+    justifyContent: 'center',
     flex: 1,
-    marginLeft: 10,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: 'black',
+    marginHorizontal: 5,
   },
-  confirmButtonText: {
-    color: "black",
-    fontSize: 18,
-    fontWeight: "bold",
+  updateButton: {
+    backgroundColor: "#EAE5E5",
   },
-  annulerButtonText: {
+  cancelButton: {
+    backgroundColor: "#FFCACA",
+  },
+  actionButtonText: {
     color: "black",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
   },
 });

@@ -466,7 +466,7 @@ export default function Echanges() {
                     <View style={styles.reservationContent}>
                       <Text style={styles.reservationText}>
                         <Text style={{ fontWeight: "bold" }}>Besoin: </Text>
-                        {acte.quantite} {acte.besoin}
+                        {acte.quantite} {acte.besoinContent}
                       </Text>
                       <Text style={styles.reservationText}>
                         <Text style={{ fontWeight: "bold" }}>Cible: </Text>

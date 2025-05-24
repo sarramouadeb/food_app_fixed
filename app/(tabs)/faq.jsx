@@ -43,16 +43,31 @@ const FAQ = () => {
     "critères": "Les besoins doivent être :\n- Réels et vérifiables\n- D'intérêt général\n- Non commerciaux",
     "bénévolat": "Pour proposer du bénévolat :\n1. Créez un besoin de type 'Bénévolat'\n2. Décrivez les compétences recherchées\n3. Précisez la durée",
     "livraison": "Les modalités de livraison/don sont à convenir directement avec l'association bénéficiaire.",
+      "créer association": "Pour créer un compte association :\n1. Allez dans 'Mon compte'\n2. Sélectionnez 'Créer un compte association'\n3. Remplissez les informations requises\n4. Fournissez les documents justificatifs",
+  "vérification association": "Les comptes association sont vérifiés sous 48h. Vous recevrez une notification par email une fois la vérification complétée.",
+  "documents nécessaires": "Pour créer un compte association, vous aurez besoin de :\n- Votre numéro\n- Un justificatif de domicile\n- Une pièce d'identité du responsable\n- Les statuts de l'association",
+  "statistiques besoins": "Vous pouvez consulter les statistiques de vos besoins dans la section 'Analytiques' de votre espace association.",
+  "modifier besoin": "Pour modifier un besoin existant :\n1. Allez dans 'Mes besoins'\n2. Trouvez le besoin à modifier\n3. Cliquez sur 'Éditer'\n4. Sauvegardez les modifications",
+  "supprimer besoin": "Pour supprimer un besoin :\n1. Allez dans 'Mes besoins'\n2. Faites glisser le besoin vers la gauche\n3. Cliquez sur 'Supprimer'",
+  "bénévoles recherchés": "Pour rechercher des bénévoles :\n1. Créez un besoin de type 'Bénévolat'\n2. Précisez les compétences recherchées\n3. Décrivez la mission\n4. Indiquez la durée et la fréquence",
+  "dons matériels": "Pour recevoir des dons matériels :\n1. Créez un besoin en précisant le type de matériel\n2. Indiquez la quantité nécessaire\n3. Précisez si vous pouvez venir chercher les dons",
+  "remercier donateurs": "Vous pouvez remercier vos donateurs directement via la messagerie ou en modifiant le statut du besoin en 'Terminé' avec un message de remerciement.",
+  "problème compte": "Pour tout problème avec votre compte association, contactez notre support à support@assistasso.fr avec votre numéro d'association.",
+  "RNA": "Le RNA (Répertoire National des Associations) est un numéro unique attribué à chaque association déclarée en France. Il est obligatoire pour créer un compte association sur notre plateforme.",
+  "besoins urgents": "Les besoins urgents sont affichés en haut de la liste avec un badge rouge. Vous avez 3 urgences gratuites par mois.",
+  "limite besoins": "Vous pouvez poster jusqu'à 10 besoins actifs simultanément. Les comptes premium ont une limite de 25 besoins.",
+  "premium": "Le compte premium association offre :\n- 25 besoins actifs\n- 10 urgences/mois\n- Statistiques avancées\n- Mise en avant des besoins\nPrix : 30DT/mois",
   };
 
   // Questions rapides pertinentes
-  const quickQuestions = [
-    "Comment poster un besoin ?",
-    "Quels types de besoins ?",
-    "Marquer un besoin urgent",
-    "Comment contacter ?",
-    "Proposer du bénévolat"
-  ];
+const quickQuestions = [
+  "Comment créer un compte association ?",
+  "Quels documents fournir ?",
+  "Comment modifier un besoin ?",
+  "Rechercher des bénévoles",
+  "Problème avec mon compte",
+  "Avantages du compte premium"
+];
 
   const handleSend = useCallback((text = inputText) => {
     if (!text.trim()) return;
@@ -90,22 +105,7 @@ const FAQ = () => {
     }, 100);
   }, [messages]);
 
-  // Calcul des initiales pour l'avatar
-  const initials = userDetail?.name
-    ? userDetail.name
-        .split(' ')
-        .map(word => word[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2)
-    : 'NA';
 
-  const colors = ["#e2eaff", "#DAD4DE", "#BBB4DA", "#7B9DD2", "#70C7C6"];
-  const colorIndex = userDetail?.uid ? userDetail.uid.length % colors.length : 0;
-
-  const handleProfilePress = () => {
-    router.push('ProfileResto');
-  };
 
   return (
     <ImageBackground 
@@ -120,7 +120,7 @@ const FAQ = () => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
+             <TouchableOpacity onPress={() => router.back()}>
             <MaterialIcons name="arrow-back" size={30} color="black" />
           </TouchableOpacity>
           
@@ -128,11 +128,7 @@ const FAQ = () => {
             <Text style={styles.title}>Assistant FAQ</Text>
           </View>
           
-          <TouchableOpacity onPress={handleProfilePress}>
-            <View style={[styles.avatar, { backgroundColor: colors[colorIndex] }]}>
-              <Text style={styles.initials}>{initials}</Text>
-            </View>
-          </TouchableOpacity>
+        
         </View>
 
         {/* Messages */}
