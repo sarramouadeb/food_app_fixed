@@ -1,0 +1,196 @@
+import { StyleSheet, Dimensions } from 'react-native';
+
+const { width, height } = Dimensions.get('window');
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    position: 'relative',
+    backgroundColor: 'transparent',
+  },
+  backgroundImage: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  overlay: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  scrollContainer: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  scrollContent: {
+    paddingBottom: 30,
+  },
+  header: {
+    paddingHorizontal: 25,
+    marginTop: height * 0.05,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  wlc: {
+    color: "white",
+    fontSize: 32,
+    fontWeight: "600",
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+    textAlign: 'center',
+  },
+  inscri: {
+    color: "white",
+    fontSize: 36,
+    fontWeight: "bold",
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+    marginTop: 5,
+    textAlign: 'center',
+  },
+  form: {
+    paddingHorizontal: 25,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    paddingHorizontal: 15,
+    borderRadius: 10,
+    height: 50,
+    marginBottom: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    paddingLeft: 10,
+    color: "#333",
+  },
+  dropdownContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flex: 1,
+  },
+  dropdownText: {
+    flex: 1,
+    fontSize: 16,
+    color: "#333",
+    paddingLeft: 10,
+  },
+  dropdownIconContainer: {
+    marginLeft: 10,
+    paddingRight: 5,
+  },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 15,
+    marginBottom: 5,
+  },
+  checkboxText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: "#555",
+  },
+  linkText: {
+    color: "#4a90e2",
+    fontWeight: 'bold',
+  },
+  signUpButton: {
+    backgroundColor: "#808080",
+    height: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 10,
+    marginTop: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  signUpButtonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  textUnderButton: {
+    marginTop: 15,
+    marginBottom: 20,
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  inputError: {
+    borderColor: '#ff6b6b',
+    borderWidth: 1,
+  },
+  errorText: {
+    color: '#ff6b6b',
+    fontSize: 12,
+    marginLeft: 15,
+    marginBottom: 5,
+  },
+  errorMessageContainer: {
+    backgroundColor: "#ffebee",
+    padding: 15,
+    borderRadius: 8,
+    marginHorizontal: 20,
+    marginTop: 50,
+    borderWidth: 1,
+    borderColor: "#ffcdd2",
+  },
+  errorMessageText: {
+    color: "#c62828",
+    fontSize: 14,
+    textAlign: "center",
+  },
+  successMessageContainer: {
+    backgroundColor: "#d4edda",
+    padding: 15,
+    borderRadius: 8,
+    marginHorizontal: 20,
+    marginTop: 50,
+    borderWidth: 1,
+    borderColor: "#c3e6cb",
+  },
+  successMessageText: {
+    color: "#155724",
+    textAlign: "center",
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  modalBackground: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContainer: {
+    width: width * 0.85,
+    backgroundColor: "white",
+    borderRadius: 12,
+    paddingVertical: 10,
+    maxHeight: height * 0.6,
+  },
+  modalItem: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  modalText: {
+    fontSize: 16,
+    color: "#333",
+  },
+});
+
+export default styles;
