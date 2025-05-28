@@ -111,7 +111,7 @@ export default function Echanges() {
             reservation.target = newAssociationsData[reservation.associationId].target || "Cible non spécifiée";
           }
         });
-        setAssociationsData(newAssociationsData);
+        setAssociationsData((prev) => ({ ...prev, ...newAssociationsData }));
       }
 
       setReservations(reservationsData);
@@ -155,6 +155,10 @@ export default function Echanges() {
             associationVille = associationData.ville || associationVille;
             associationCible = associationData.target || associationCible;
             associationPhone = associationData.phone || associationPhone;
+            setAssociationsData((prev) => ({
+              ...prev,
+              [data.associationId]: associationData,
+            }));
           }
         }
 
@@ -302,10 +306,10 @@ export default function Echanges() {
     .slice(0, 2) || "NA";
 
   const colors = ["#7B9DD2", "#DAD4DE", "#BBB4DA", "#7B9DD2", "#70C7C6"];
-  const colorIndex = userDetail?.id?.length % colors.length || 0;
+  const colorIndex = userDetail?.uid?.length % colors.length || 0;
 
   return (
-     <ImageBackground 
+    <ImageBackground 
       source={require('../../assets/images/cover.png')} 
       style={styles.backgroundImage}
       resizeMode="cover"
@@ -323,7 +327,7 @@ export default function Echanges() {
           </TouchableOpacity>
 
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>Echanges</Text>
+            <Text style={styles.title}>Échanges</Text>
           </View>
 
           <TouchableOpacity onPress={handleProfilePress}>
@@ -370,62 +374,75 @@ export default function Echanges() {
               ) : reservations.length === 0 ? (
                 <Text style={styles.noReservationsText}>Aucune réservation trouvée</Text>
               ) : (
-                reservations.map((reservation) => (
-                  <View key={reservation.id} style={styles.reservationCard}>
-                    <View style={styles.headerContainer}>
-                      <View style={[styles.avatarReservation, { backgroundColor: colors[colorIndex] }]}>
-                        <Text style={{ color: "black", fontSize: 25 }}>
-                          {reservation.associationName
-                            .split(" ")
-                            .map((word) => word[0])
-                            .join("")
-                            .toUpperCase()
-                            .slice(0, 2)}
+                reservations.map((reservation) => {
+                  const associationInfo = associationsData[reservation.associationId] || {};
+                  return (
+                    <View key={reservation.id} style={styles.reservationCard}>
+                      <View style={styles.headerContainer}>
+                        <TouchableOpacity
+                          onPress={() => router.push({
+                            pathname: "/AssoPr",
+                            params: {
+                              associationId: reservation.associationId,
+                              association: JSON.stringify(associationInfo)
+                            }
+                          })}
+                        >
+                          <View style={[styles.avatarReservation, { backgroundColor: colors[reservation.associationId?.length % colors.length || 0] }]}>
+                            <Text style={{ color: "black", fontSize: 25 }}>
+                              {reservation.associationName
+                                .split(" ")
+                                .map((word) => word[0])
+                                .join("")
+                                .toUpperCase()
+                                .slice(0, 2)}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                        <View style={styles.titleWrapper}>
+                          <Text style={styles.reservationTitle}>{reservation.associationName}</Text>
+                          <Text style={styles.reservationSubtitle}>
+                            {reservation.restaurantVille} - {formatDate(reservation.annonceCreationTimestamp)}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.reservationContent}>
+                        <Text style={styles.reservationText}>
+                          <Text style={{ fontWeight: "bold" }}>Offre: </Text>
+                          {reservation.quantite} {reservation.offre}
+                        </Text>
+                        <Text style={styles.reservationText}>
+                          <Text style={{ fontWeight: "bold" }}>Cible: </Text>
+                          {reservation.target}
+                        </Text>
+                        <Text style={styles.reservationText}>
+                          <Text style={{ fontWeight: "bold" }}>Date Récupération: </Text>
+                          {formatDate(reservation.dateRecuperation)}
+                        </Text>
+                        <Text style={styles.reservationText}>
+                          <Text style={{ fontWeight: "bold" }}>Heure Récupération: </Text>
+                          {formatTime(reservation.dateRecuperation)}
                         </Text>
                       </View>
-                      <View style={styles.titleWrapper}>
-                        <Text style={styles.reservationTitle}>{reservation.associationName}</Text>
-                        <Text style={styles.reservationSubtitle}>
-                          {reservation.restaurantVille} - {formatDate(reservation.annonceCreationTimestamp)}
-                        </Text>
+
+                      <View style={styles.reservationActions}>
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => handleUpdateReservation(reservation.id)}
+                        >
+                          <Text style={styles.actionButtonText}>Mettre à jour</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => handleDeleteReservation(reservation.id)}
+                        >
+                          <Text style={styles.actionButtonText}>Supprimer</Text>
+                        </TouchableOpacity>
                       </View>
                     </View>
-
-                    <View style={styles.reservationContent}>
-                      <Text style={styles.reservationText}>
-                        <Text style={{ fontWeight: "bold" }}>Offre: </Text>
-                        {reservation.quantite} {reservation.offre}
-                      </Text>
-                      <Text style={styles.reservationText}>
-                        <Text style={{ fontWeight: "bold" }}>Cible: </Text>
-                        {reservation.target}
-                      </Text>
-                      <Text style={styles.reservationText}>
-                        <Text style={{ fontWeight: "bold" }}>Date Récupération: </Text>
-                        {formatDate(reservation.dateRecuperation)}
-                      </Text>
-                      <Text style={styles.reservationText}>
-                        <Text style={{ fontWeight: "bold" }}>Heure Récupération: </Text>
-                        {formatTime(reservation.dateRecuperation)}
-                      </Text>
-                    </View>
-
-                    <View style={styles.reservationActions}>
-                      <TouchableOpacity
-                        style={styles.actionButtonModifier}
-                        onPress={() => handleUpdateReservation(reservation.id)}
-                      >
-                        <Text style={styles.actionButtonTextModifier}>Mettre à jour</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.actionButtonSupprimer}
-                        onPress={() => handleDeleteReservation(reservation.id)}
-                      >
-                        <Text style={styles.actionButtonTextSupprimer}>Supprimer</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))
+                  );
+                })
               )}
             </View>
           ) : (
@@ -439,78 +456,91 @@ export default function Echanges() {
               ) : actesBenevoles.length === 0 ? (
                 <Text style={styles.noReservationsText}>Aucun acte bénévole trouvé</Text>
               ) : (
-                actesBenevoles.map((acte) => (
-                  <View key={acte.id} style={styles.reservationCard}>
-                    <View style={styles.headerContainer}>
-                      <View style={[styles.avatarReservation, { backgroundColor: colors[colorIndex] }]}>
-                        <Text style={{ color: "black", fontSize: 25 }}>
-                          {acte.associationName
-                            .split(" ")
-                            .map((word) => word[0])
-                            .join("")
-                            .toUpperCase()
-                            .slice(0, 2)}
+                actesBenevoles.map((acte) => {
+                  const associationInfo = associationsData[acte.associationId] || {};
+                  return (
+                    <View key={acte.id} style={styles.reservationCard}>
+                      <View style={styles.headerContainer}>
+                        <TouchableOpacity
+                          onPress={() => router.push({
+                            pathname: "/AssoPr",
+                            params: {
+                              associationId: acte.associationId,
+                              association: JSON.stringify(associationInfo)
+                            }
+                          })}
+                        >
+                          <View style={[styles.avatarReservation, { backgroundColor: colors[acte.associationId?.length % colors.length || 0] }]}>
+                            <Text style={{ color: "black", fontSize: 25 }}>
+                              {acte.associationName
+                                .split(" ")
+                                .map((word) => word[0])
+                                .join("")
+                                .toUpperCase()
+                                .slice(0, 2)}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                        <View style={styles.titleWrapper}>
+                          <Text style={styles.reservationTitle}>{acte.associationName}</Text>
+                          <Text style={styles.reservationSubtitle}>
+                            {acte.ville} - {associationInfo.phone || acte.associationPhone}
+                          </Text>
+                          <Text style={styles.reservationSubtitle}>
+                            {formatDate(acte.createdAt)} - {formatTime(acte.createdAt)}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.reservationContent}>
+                        <Text style={styles.reservationText}>
+                          <Text style={{ fontWeight: "bold" }}>Besoin: </Text>
+                          {acte.quantite} {acte.besoinContent}
+                        </Text>
+                        <Text style={styles.reservationText}>
+                          <Text style={{ fontWeight: "bold" }}>Cible: </Text>
+                          {acte.cible}
+                        </Text>
+                        <Text style={styles.reservationText}>
+                          <Text style={{ fontWeight: "bold" }}>Statut: </Text>
+                          <Text style={{
+                            color: acte.status === "confirmé" ? "green" :
+                              acte.status === "refusé" ? "red" : "orange"
+                          }}>
+                            {acte.status}
+                          </Text>
+                        </Text>
+                        <Text style={styles.reservationText}>
+                          <Text style={{ fontWeight: "bold" }}>Date de récupération: </Text>
+                          {formatDate(acte.dateRecuperation)} à {formatTime(acte.dateRecuperation)}
                         </Text>
                       </View>
-                      <View style={styles.titleWrapper}>
-                        <Text style={styles.reservationTitle}>{acte.associationName}</Text>
-                        <Text style={styles.reservationSubtitle}>
-                          {acte.ville} - {acte.associationPhone || "Non renseigné"}
-                        </Text>
-                        <Text style={styles.reservationSubtitle}>
-                          {formatDate(acte.createdAt)} - {formatTime(acte.createdAt)}
-                        </Text>
+
+                      <View style={styles.reservationActions}>
+                        <TouchableOpacity
+                          style={[styles.actionButton, { backgroundColor: "#E5E5EA" }]}
+                          onPress={() => handleViewActeDetails(acte.id)}
+                        >
+                          <Text style={styles.actionButtonText}>Mettre à jour</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.actionButton, {
+                            backgroundColor: acte.status === "en attente" ? "#FFCDD2" : "#F5F5F5"
+                          }]}
+                          onPress={() => acte.status === "en attente" && handleDeleteActe(acte.id)}
+                          disabled={acte.status !== "en attente"}
+                        >
+                          <Text style={[
+                            styles.actionButtonText,
+                            acte.status !== "en attente" && { color: "#9E9E9E" }
+                          ]}>
+                            Annuler
+                          </Text>
+                        </TouchableOpacity>
                       </View>
                     </View>
-
-                    <View style={styles.reservationContent}>
-                      <Text style={styles.reservationText}>
-                        <Text style={{ fontWeight: "bold" }}>Besoin: </Text>
-                        {acte.quantite} {acte.besoinContent}
-                      </Text>
-                      <Text style={styles.reservationText}>
-                        <Text style={{ fontWeight: "bold" }}>Cible: </Text>
-                        {acte.cible}
-                      </Text> 
-                      <Text style={styles.reservationText}>
-                        <Text style={{ fontWeight: "bold" }}>Statut: </Text>
-                        <Text style={{ 
-                          color: acte.status === "confirmé" ? "green" : 
-                                acte.status === "refusé" ? "red" : "orange"
-                        }}>
-                          {acte.status}
-                        </Text>
-                      </Text>
-                      <Text style={styles.reservationText}>
-                        <Text style={{ fontWeight: "bold" }}>Date de récupération: </Text>
-                        {formatDate(acte.dateRecuperation)} à {formatTime(acte.dateRecuperation)}
-                      </Text>
-                    </View>
-
-                    <View style={styles.reservationActions}>
-                      <TouchableOpacity
-                        style={[styles.actionButtonModifier, { backgroundColor: "#E5E5EA" }]}
-                        onPress={() => handleViewActeDetails(acte.id)}
-                      >
-                        <Text style={styles.actionButtonTextModifier}>Mettre à jour</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.actionButtonSupprimer, { 
-                          backgroundColor: acte.status === "en attente" ? "#FFCDD2" : "#F5F5F5" 
-                        }]}
-                        onPress={() => acte.status === "en attente" && handleDeleteActe(acte.id)}
-                        disabled={acte.status !== "en attente"}
-                      >
-                        <Text style={[
-                          styles.actionButtonTextSupprimer,
-                          acte.status !== "en attente" && { color: "#9E9E9E" }
-                        ]}>
-                          Annuler
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))
+                  );
+                })
               )}
             </View>
           )}
@@ -540,7 +570,6 @@ const styles = StyleSheet.create({
   },
   mainContent: {
     flex: 1,
-    
   },
   header: {
     flexDirection: "row",
@@ -548,7 +577,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 15,
     paddingVertical: 0,
-    
     marginTop: StatusBar.currentHeight || 15,
   },
   avatar: {
@@ -649,7 +677,7 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 15,
     borderColor: "black",
-    borderWidth: 2,
+    borderWidth: 1,
     width: width * 0.9,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -690,30 +718,18 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 10,
   },
-  actionButtonSupprimer: {
+  actionButton: {
     padding: 10,
     flex: 1,
-    marginLeft: 5,
+    marginHorizontal: 5,
     borderColor: "black",
     borderWidth: 1,
     alignItems: "center",
+    borderRadius: 7,
   },
-  actionButtonTextSupprimer: {
+  actionButtonText: {
     color: "black",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  actionButtonModifier: {
-    padding: 10,
-    flex: 1,
-    marginRight: 5,
-    borderColor: "black",
-    borderWidth: 1,
-    alignItems: "center",
-  },
-  actionButtonTextModifier: {
-    color: "black",
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

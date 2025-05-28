@@ -45,7 +45,7 @@ const SlideMenu = ({ isOpen, toggleMenu, userDetail }) => {
     { title: "Echanges", icon: "calendar-outline", action: () => router.push("Echanges") },
     { title: "Mon Profil", icon: "account-outline", action: () => router.push("ProfileResto") },
     { title: "Notifications", icon: "bell-outline", action: () => router.push("Notifications") },
-    { title: "Rapports", icon: "card-text-outline", action: () => router.push("Reports") },
+    { title: "Rapports", icon: "card-text-outline", action: () => router.push("Rapports") },
     { title: "À propos", icon: "information-outline", action: () => router.push("About") },
     { title: "FAQ", icon: "help-circle-outline", action: () => router.push("faq") },
     { isDivider: true }, 

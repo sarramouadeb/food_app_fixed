@@ -150,6 +150,7 @@ export default function _Layout() {
           <Tabs.Screen name="About" options={{ tabBarItemStyle: { display: 'none' }}} />
           <Tabs.Screen name="SlideMenu" options={{ tabBarItemStyle: { display: 'none' }}} />
           <Tabs.Screen name="AssoPr" options={{ tabBarItemStyle: { display: 'none' }}} />
+          <Tabs.Screen name="Rapports" options={{ tabBarItemStyle: { display: 'none' }}} />
         </Tabs>
       </View>
     </UserProvider>

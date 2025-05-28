@@ -161,7 +161,7 @@ export default function Besoins() {
       }
 
       setAssociationsData(newAssociationsData);
-    });
+    }, [userDetail?.uid]);
 
     return () => unsubscribe();
   }, [userDetail?.uid]);
@@ -244,9 +244,16 @@ export default function Besoins() {
               return (
                 <View key={besoin.id} style={styles.besoinCard}>
                   <View style={styles.headerContainer}>
-                    <View style={[styles.avatarBesoin, { backgroundColor: colors[colorIndex] }]}>
-                      <Text style={{ color: "Black", fontSize: 25 }}>{associationInitials}</Text>
-                    </View>
+                    <TouchableOpacity
+                      onPress={() => router.push({
+                        pathname: "/AssoPr",
+                        params: { associationId: besoin.userId }
+                      })}
+                    >
+                      <View style={[styles.avatarBesoin, { backgroundColor: colors[colorIndex] }]}>
+                        <Text style={{ color: "Black", fontSize: 25 }}>{associationInitials}</Text>
+                      </View>
+                    </TouchableOpacity>
                     <View style={styles.titleWrapper}>
                       <Text style={styles.besoinTitle}>{associationName}</Text>
                       <Text style={styles.besoinSubtitle}>
