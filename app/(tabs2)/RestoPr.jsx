@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
-    paddingBottom: 20,
+    paddingBottom: 100,
   },
   backButton: {
     position: 'absolute',

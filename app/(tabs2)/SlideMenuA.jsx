@@ -45,7 +45,7 @@ const colors = ["#7B9DD2", "#DAD4DE", "#BBB4DA", "#7B9DD2", "#70C7C6"];
     { title: "Réservations", icon: "calendar-outline", action: () => router.push("ReservationsA") },
     { title: "Mon Profil", icon: "account-outline", action: () => router.push("ProfileAsso") },
     { title: "Notifications", icon: "bell-outline", action: () => router.push("NotificationsA") },
-    { title: "Rapports", icon: "card-text-outline", action: () => router.push("Reports") },
+    { title: "Rapports", icon: "card-text-outline", action: () => router.push("RapportsA") },
     { title: "À propos", icon: "information-outline", action: () => router.push("../(tabs)/About") },
     { title: "FAQ", icon: "help-circle-outline", action: () => router.push("../(tabs)/faq") },
     { isDivider: true }, 

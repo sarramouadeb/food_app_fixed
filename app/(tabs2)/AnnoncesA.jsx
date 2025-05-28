@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 100,
   },
   textContainer: {
     backgroundColor: '#DED8E1',

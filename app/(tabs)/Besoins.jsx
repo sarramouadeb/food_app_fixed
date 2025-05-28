@@ -177,7 +177,7 @@ export default function Besoins() {
         .slice(0, 2)
     : "NA";
 
-  const colors = ["#e2eaff", "#DAD4DE", "#BBB4DA", "#7B9DD2", "#70C7C6"];
+  const colors = ["#7B9DD2", "#DAD4DE", "#BBB4DA", "#7B9DD2", "#70C7C6"];
   const colorIndex = currentUserData?.uid ? currentUserData.uid.length % colors.length : 0;
 
   return (

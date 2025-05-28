@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import React, { useState, useContext } from "react";
-import { router, Tabs } from "expo-router";
+import { router, Tabs, usePathname } from "expo-router";
 import { useUserContext } from "../../context/UserContext";
 import Icon from "react-native-vector-icons/Ionicons";
 import { UserProvider } from "../../context/UserContext";
@@ -40,6 +40,12 @@ const CustomTabBarButton = ({ children, onPress }) => {
 
 export default function _Layout() {
   const { userDetail, setUserDetail } = useUserContext();
+  const pathname = usePathname();
+
+  // Fonction pour déterminer si un onglet est actif
+  const isTabActive = (tabName) => {
+    return pathname.includes(tabName);
+  };
 
   return (
     <UserProvider>
@@ -66,7 +72,10 @@ export default function _Layout() {
             name="AnnoncesA"
             options={{
               tabBarIcon: ({ focused }) => (
-                <View style={styles.tabItem}>
+                <View style={[
+                  styles.tabItem,
+                  isTabActive('AnnoncesA') && styles.activeTabItem
+                ]}>
                   <Icon
                     name="home-outline"
                     size={24}
@@ -83,7 +92,10 @@ export default function _Layout() {
             name="BesoinsA"
             options={{
               tabBarIcon: ({ focused }) => (
-                <View style={styles.tabItem}>
+                <View style={[
+                  styles.tabItem,
+                  isTabActive('BesoinsA') && styles.activeTabItem
+                ]}>
                   <Icon
                     name="grid-outline"
                     size={24}
@@ -133,7 +145,10 @@ export default function _Layout() {
             name="EchangesA"
             options={{
               tabBarIcon: ({ focused }) => (
-                <View style={styles.tabItem}>
+                <View style={[
+                  styles.tabItem,
+                  isTabActive('EchangesA') && styles.activeTabItem
+                ]}>
                   <Icon
                     name="calendar-number-outline"
                     size={24}
@@ -150,7 +165,10 @@ export default function _Layout() {
             name="NotificationsA"
             options={{
               tabBarIcon: ({ focused }) => (
-                <View style={styles.tabItem}>
+                <View style={[
+                  styles.tabItem,
+                  isTabActive('NotificationsA') && styles.activeTabItem
+                ]}>
                   <Icon
                     name="notifications-outline"
                     size={24}
@@ -163,7 +181,7 @@ export default function _Layout() {
           />
 
           {/* Les écrans cachés */}
-          {['ProfileAsso', 'ModifierProfileA', 'SlideMenuA', 'RestoPr', 'ReserverAnnonce'].map((name) => (
+          {['ProfileAsso', 'ModifierProfileA', 'SlideMenuA', 'RestoPr', 'ReserverAnnonce','RapportsA','AddReport','ImageViewer'].map((name) => (
             <Tabs.Screen
               key={name}
               name={name}
@@ -189,6 +207,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: width / 5,
     paddingTop: 10,
+  },
+  activeTabItem: {
+    backgroundColor: '#f0f0f0', // Couleur de fond grise pour l'onglet actif
+    borderRadius: 10,
+  
   },
   centralTabItem: {
     alignItems: 'center',
