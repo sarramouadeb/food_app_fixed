@@ -43,8 +43,8 @@ export default function BesoinsA() {
   const [associationsData, setAssociationsData] = useState({});
   const [refreshing, setRefreshing] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const slideAnim = useRef(new Animated.Value(-width)).current;
-  
+  const slideAnim = useRef(new Animated.Value(-width)).current; // This line seems unused, consider removing if not needed.
+
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
@@ -69,19 +69,19 @@ export default function BesoinsA() {
           where("userId", "==", userDetail.uid),
           orderBy("createdAt", "desc")
         );
-        
+
         const snapshot = await getDocs(q);
         const besoinsList = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
-        
+
         setBesoins(besoinsList);
-        
+
         const associationsRef = collection(db, "associations");
         const newAssociationsData = {};
         const associationIds = [...new Set(besoinsList.map(besoin => besoin.userId))];
-        
+
         await Promise.all(associationIds.map(async (associationId) => {
           if (associationId) {
             try {
@@ -95,7 +95,7 @@ export default function BesoinsA() {
             }
           }
         }));
-        
+
         setAssociationsData(newAssociationsData);
       }
     } catch (error) {
@@ -107,34 +107,43 @@ export default function BesoinsA() {
   };
 
   useEffect(() => {
+    // This useEffect populates associationsData based on the *initial* `besoins` state
+    // and subsequent changes to `besoins`.
+    // The `onRefresh` function also populates `associationsData`
+    // It's good to keep this for initial load and snapshot updates.
     if (besoins.length > 0) {
       const fetchAssociationsData = async () => {
         const associationsRef = collection(db, "associations");
         const newAssociationsData = {};
         const associationIds = [...new Set(besoins.map(besoin => besoin.userId))];
 
-        for (const associationId of associationIds) {
+        // Use Promise.all for concurrent fetching for better performance
+        await Promise.all(associationIds.map(async (associationId) => {
           if (associationId) {
-            const docRef = doc(associationsRef, associationId);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-              newAssociationsData[associationId] = docSnap.data();
+            try {
+              const docRef = doc(associationsRef, associationId);
+              const docSnap = await getDoc(docRef);
+              if (docSnap.exists()) {
+                newAssociationsData[associationId] = docSnap.data();
+              }
+            } catch (error) {
+              console.error(`Erreur lors du chargement du association ${associationId}:`, error);
             }
           }
-        }
-
+        }));
         setAssociationsData(newAssociationsData);
       };
 
       fetchAssociationsData();
     }
-  }, [besoins]);
+  }, [besoins]); // Re-run when `besoins` array changes
 
   const handleModifyBesoin = (besoin) => {
     navigation.navigate("NewBesoin", { besoinToEdit: besoin });
   };
 
   useEffect(() => {
+    // This useEffect sets up the real-time listener
     if (userDetail?.uid) {
       const besoinsCollection = collection(db, "besoins");
       const q = query(
@@ -148,24 +157,32 @@ export default function BesoinsA() {
           id: doc.id,
           ...doc.data(),
         }));
-        
+
+        // Check if a new besoin was added (simple check, assumes newest is at index 0)
+        // This logic might be slightly fragile if items are deleted or modified frequently.
+        // A more robust check would involve comparing IDs.
         if (besoinsList.length > besoins.length) {
           const newBesoin = besoinsList[0];
           setNewBesoinId(newBesoin.id);
         }
 
         setBesoins(besoinsList);
+      }, (error) => {
+        console.error("Error fetching real-time besoins:", error);
+        // Optionally handle the error in UI
       });
 
-      return () => unsubscribe();
+      return () => unsubscribe(); // Cleanup the listener on unmount
     }
-  }, [userDetail?.uid, besoins.length]);
+  }, [userDetail?.uid, besoins.length]); // `besoins.length` is here to trigger newBesoinId check, be careful with it.
+                                      // If you want to avoid re-running the snapshot listener when `besoins` changes,
+                                      // you might remove `besoins.length` from dependency array and refine `newBesoinId` logic.
 
   useEffect(() => {
     if (newBesoinId) {
       const timeout = setTimeout(() => {
         setNewBesoinId(null);
-      }, 2000);
+      }, 2000); // Highlight new besoin for 2 seconds
 
       return () => clearTimeout(timeout);
     }
@@ -181,10 +198,21 @@ export default function BesoinsA() {
     : "NA";
 
   const colors = ["#e2eaff", "#DAD4DE", "#BBB4DA", "#7B9DD2", "#70C7C6"];
-  const colorIndex = userDetail?.id ? userDetail.id.length % colors.length : 0;
+  // Using a hash-based color selection for consistency, rather than just length.
+  // This will give a more consistent color for the same userDetail.id.
+  const getUserColorIndex = (id) => {
+    if (!id) return 0;
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = id.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return Math.abs(hash) % colors.length;
+  };
+  const colorIndex = getUserColorIndex(userDetail?.uid);
+
 
   return (
-    <ImageBackground 
+    <ImageBackground
       source={cover}
       style={styles.backgroundImage}
       resizeMode="cover"
@@ -194,7 +222,7 @@ export default function BesoinsA() {
           <View style={styles.overlay} />
         </TouchableWithoutFeedback>
       )}
-      
+
       <Animated.View style={styles.mainContent}>
         <View style={styles.header}>
           <TouchableOpacity onPress={toggleMenu}>
@@ -212,7 +240,7 @@ export default function BesoinsA() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl
@@ -233,7 +261,7 @@ export default function BesoinsA() {
               const associationName = associationInfo.name || "Nom inconnu";
               const associationCity = associationInfo.ville || "Ville inconnue";
               const associationPhone = associationInfo.phone || "Téléphone inconnu";
-              
+
               const besoinInitials = associationName
                 ? associationName
                     .split(" ")
@@ -243,16 +271,19 @@ export default function BesoinsA() {
                     .slice(0, 2)
                 : "NA";
 
+              // Use the same color logic for the besoin cards, based on userId
+              const besoinCardColorIndex = getUserColorIndex(besoin.userId);
+
               return (
-                <View 
-                  key={besoin.id} 
+                <View
+                  key={besoin.id}
                   style={[
                     styles.besoinCard,
                     isNewBesoin && styles.newBesoin
                   ]}
                 >
                   <View style={styles.headerContainer}>
-                    <View style={[styles.avatarBesoin, { backgroundColor: colors[colorIndex] }]}>
+                    <View style={[styles.avatarBesoin, { backgroundColor: colors[besoinCardColorIndex] }]}>
                       <Text style={styles.avatarText}>{besoinInitials}</Text>
                     </View>
                     <View style={styles.titleWrapper}>
@@ -300,7 +331,8 @@ export default function BesoinsA() {
                     <View style={styles.detailRow}>
                       <Text style={styles.detailLabel}>Date:</Text>
                       <Text style={styles.detailValue}>
-                        {besoin.createdAt
+                        {/* FIX: Added check for .toDate() function to prevent error */}
+                        {besoin.createdAt && typeof besoin.createdAt.toDate === 'function'
                           ? new Date(besoin.createdAt.toDate()).toLocaleDateString("fr-FR", {
                               day: 'numeric',
                               month: 'long',
@@ -331,7 +363,7 @@ export default function BesoinsA() {
           </View>
         </ScrollView>
       </Animated.View>
-      
+
       <SlideMenuA
         isOpen={isMenuOpen}
         toggleMenu={toggleMenu}
@@ -527,4 +559,3 @@ const styles = StyleSheet.create({
     color: 'black',
   },
 });
-

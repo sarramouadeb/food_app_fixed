@@ -14,11 +14,12 @@ import {
 } from "react-native";
 import { useUserContext } from "../../context/UserContext";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import { router, useLocalSearchParams } from "expo-router";
 import SlideMenu from "./SlideMenu";
-import { collection, query, where, getDocs, documentId, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, documentId, getDoc, updateDoc, doc } from "firebase/firestore";
 import { db } from "../../config/FirebaseConfig";
-import { deleteDoc, doc } from "firebase/firestore";
+import { deleteDoc } from "firebase/firestore";
 import { Alert } from "react-native";
 import { ImageBackground } from "expo-image";
 
@@ -36,6 +37,7 @@ export default function Echanges() {
   const [loading, setLoading] = useState(true);
   const [loadingActes, setLoadingActes] = useState(true);
   const [associationsData, setAssociationsData] = useState({});
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (params?.initialTab === "actes") {
@@ -64,7 +66,7 @@ export default function Echanges() {
     try {
       setLoading(true);
       if (!userDetail?.uid) {
-        console.log("No valid user UID available");
+        console.log("No valid user UID");
         setReservations([]);
         return;
       }
@@ -73,16 +75,17 @@ export default function Echanges() {
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
+        console.log("No reservations found");
         setReservations([]);
         return;
       }
 
-      const associationIds = querySnapshot.docs
-        .map((doc) => doc.data().associationId)
-        .filter((id) => id);
-
+      const associationIds = [];
       const reservationsData = querySnapshot.docs.map((doc) => {
         const data = doc.data();
+        const status = data.status || "active";
+        console.log(`Reservation ${doc.id} status: ${status}`);
+        if (data.associationId) associationIds.push(data.associationId);
         return {
           id: doc.id,
           associationId: data.associationId,
@@ -94,6 +97,7 @@ export default function Echanges() {
           dateRecuperation: safeConvertToDate(data.dateRecuperation),
           annonceCreationTimestamp: safeConvertToDate(data.annonceCreationTimestamp),
           target: "Cible non spécifiée",
+          status,
         };
       });
 
@@ -114,9 +118,10 @@ export default function Echanges() {
         setAssociationsData((prev) => ({ ...prev, ...newAssociationsData }));
       }
 
-      setReservations(reservationsData);
+      setReservations(reservationsData.sort((a, b) => (a.status === "active" && b.status !== "active" ? -1 : 1)));
     } catch (error) {
       console.error("Error fetching reservations:", error);
+      setError("Erreur lors du chargement des réservations");
       setReservations([]);
     } finally {
       setLoading(false);
@@ -127,7 +132,7 @@ export default function Echanges() {
     try {
       setLoadingActes(true);
       if (!userDetail?.uid) {
-        console.log("No valid user UID available");
+        console.log("No valid user UID");
         setActesBenevoles([]);
         return;
       }
@@ -136,32 +141,38 @@ export default function Echanges() {
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
+        console.log("No actes bénévoles found");
         setActesBenevoles([]);
         return;
       }
 
       const actesData = await Promise.all(querySnapshot.docs.map(async (docSnapshot) => {
         const data = docSnapshot.data();
-        
         let associationVille = "Ville inconnue";
         let associationCible = "Cible non spécifiée";
         let associationPhone = "Non renseigné";
-        
+
         if (data.associationId) {
-          const associationDocRef = doc(db, "associations", data.associationId);
-          const associationSnap = await getDoc(associationDocRef);
-          if (associationSnap.exists()) {
-            const associationData = associationSnap.data();
-            associationVille = associationData.ville || associationVille;
-            associationCible = associationData.target || associationCible;
-            associationPhone = associationData.phone || associationPhone;
-            setAssociationsData((prev) => ({
-              ...prev,
-              [data.associationId]: associationData,
-            }));
+          try {
+            const associationDocRef = doc(db, "associations", data.associationId);
+            const associationSnap = await getDoc(associationDocRef);
+            if (associationSnap.exists()) {
+              const associationData = associationSnap.data();
+              associationVille = associationData.ville || associationVille;
+              associationCible = associationData.target || associationCible;
+              associationPhone = associationData.phone || associationPhone;
+              setAssociationsData((prev) => ({
+                ...prev,
+                [data.associationId]: associationData,
+              }));
+            }
+          } catch (error) {
+            console.error(`Error fetching association ${data.associationId}:`, error);
           }
         }
 
+        const status = data.status || "active";
+        console.log(`Acte ${docSnapshot.id} status: ${status}`);
         return {
           id: docSnapshot.id,
           besoinId: data.besoinId,
@@ -169,19 +180,21 @@ export default function Echanges() {
           associationName: data.associationName || "Association inconnue",
           associationPhone: data.associationPhone || associationPhone,
           quantite: data.quantite || "Quantité inconnue",
-          status: data.status || "en attente",
+          aideStatus: data.aideStatus || "en attente",
           type: data.aidetype,
           createdAt: safeConvertToDate(data.createdAt),
           dateRecuperation: safeConvertToDate(data.dateRecuperation),
-          besoinContent: data.besoinContent,
+          besoinContent: data.besoinContent || "Contenu inconnu",
           ville: data.associationVille || associationVille,
           cible: data.associationCible || associationCible,
+          status,
         };
       }));
 
-      setActesBenevoles(actesData);
+      setActesBenevoles(actesData.sort((a, b) => (a.status === "active" && b.status !== "active" ? -1 : 1)));
     } catch (error) {
-      console.error("Error fetching actes benevoles:", error);
+      console.error("Error fetching actes bénévoles:", error);
+      setError("Erreur lors du chargement des actes bénévoles");
       setActesBenevoles([]);
     } finally {
       setLoadingActes(false);
@@ -189,18 +202,23 @@ export default function Echanges() {
   };
 
   const fetchAllData = async () => {
-    await Promise.all([fetchReservations(), fetchActesBenevoles()]);
+    try {
+      await Promise.all([fetchReservations(), fetchActesBenevoles()]);
+    } catch (error) {
+      console.error("Error fetching all data:", error);
+      setError("Erreur lors du chargement des données");
+    }
   };
 
   useEffect(() => {
     let isMounted = true;
-    if (isMounted) {
+    if (isMounted && userDetail?.uid) {
       fetchAllData();
     }
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [userDetail?.uid]);
 
   const toggleMenu = () => {
     const toValue = isMenuOpen ? 0 : width * 0.75;
@@ -213,7 +231,7 @@ export default function Echanges() {
   };
 
   const handleProfilePress = () => {
-    router.push("ProfileResto");
+    router.push("/ProfileResto");
   };
 
   const onRefresh = async () => {
@@ -265,8 +283,8 @@ export default function Echanges() {
 
   const handleUpdateReservation = (reservationId) => {
     router.push({
-      pathname: "ModifierReservation",
-      params: { id: reservationId, type: "reservation" }
+      pathname: "/ModifierReservation",
+      params: { id: reservationId, type: "reservation" },
     });
   };
 
@@ -274,10 +292,10 @@ export default function Echanges() {
     try {
       await deleteDoc(doc(db, "reservations", reservationId));
       setReservations((prev) => prev.filter((r) => r.id !== reservationId));
-      Alert.alert("Succès", "La réservation a été supprimée avec succès");
+      Alert.alert("Succès", "Réservation supprimée");
     } catch (error) {
-      console.error("Erreur lors de la suppression:", error);
-      Alert.alert("Erreur", "La suppression a échoué");
+      console.error("Error deleting reservation:", error);
+      Alert.alert("Erreur", "Échec de la suppression");
     }
   };
 
@@ -285,21 +303,49 @@ export default function Echanges() {
     try {
       await deleteDoc(doc(db, "aides", acteId));
       setActesBenevoles((prev) => prev.filter((a) => a.id !== acteId));
-      Alert.alert("Succès", "L'acte bénévole a été annulé");
+      Alert.alert("Succès", "Acte bénévole annulé");
     } catch (error) {
-      console.error("Erreur lors de la suppression:", error);
-      Alert.alert("Erreur", "L'annulation a échoué");
+      console.error("Error deleting acte:", error);
+      Alert.alert("Erreur", "Échec de l'annulation");
     }
   };
 
   const handleViewActeDetails = (acteId) => {
     router.push({
-      pathname: "ModifierReservation",
-      params: { id: acteId, type: "acte" }
+      pathname: "/ModifierReservation",
+      params: { id: acteId, type: "acte" },
     });
   };
 
-  const initials = userDetail?.name?.split(" ")
+  const handleMarkAsRecovered = async (itemId, type) => {
+    try {
+      const collectionName = type === "reservation" ? "reservations" : "aides";
+      await updateDoc(doc(db, collectionName, itemId), {
+        status: "archived",
+      });
+
+      if (type === "reservation") {
+        setReservations((prev) =>
+          prev
+            .map((r) => (r.id === itemId ? { ...r, status: "archived" } : r))
+            .sort((a, b) => (a.status === "active" && b.status !== "active" ? -1 : 1))
+        );
+      } else {
+        setActesBenevoles((prev) =>
+          prev
+            .map((a) => (a.id === itemId ? { ...a, status: "archived" } : a))
+            .sort((a, b) => (a.status === "active" && b.status !== "active" ? -1 : 1))
+        );
+      }
+      Alert.alert("Succès", `${type === "reservation" ? "Réservation" : "Acte bénévole"} marqué comme récupéré`);
+    } catch (error) {
+      console.error("Error archiving:", error);
+      Alert.alert("Erreur", "Échec de l'archivage");
+    }
+  };
+
+  const initials = userDetail?.name
+    ?.split(" ")
     .map((word) => word[0])
     .join("")
     .toUpperCase()
@@ -308,9 +354,20 @@ export default function Echanges() {
   const colors = ["#7B9DD2", "#DAD4DE", "#BBB4DA", "#7B9DD2", "#70C7C6"];
   const colorIndex = userDetail?.uid?.length % colors.length || 0;
 
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchAllData}>
+          <Text style={styles.retryButtonText}>Réessayer</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
-    <ImageBackground 
-      source={require('../../assets/images/cover.png')} 
+    <ImageBackground
+      source={require('../../assets/images/cover.png')}
       style={styles.backgroundImage}
       resizeMode="cover"
     >
@@ -343,7 +400,7 @@ export default function Echanges() {
             onPress={() => setActiveTab("reservations")}
           >
             <Text style={[styles.tabText, activeTab === "reservations" && styles.activeTabText]}>
-              Vos Réservations
+              Réservations
             </Text>
           </TouchableOpacity>
 
@@ -366,36 +423,49 @@ export default function Echanges() {
           {activeTab === "reservations" ? (
             <View style={{ flex: 1, alignItems: "center" }}>
               <View style={styles.textContainer}>
-                <Text style={styles.text}>Filtrer vos réservations:</Text>
+                <Text style={styles.text}>Vos réservations :</Text>
               </View>
 
               {loading ? (
                 <ActivityIndicator size="large" color="gray" />
               ) : reservations.length === 0 ? (
-                <Text style={styles.noReservationsText}>Aucune réservation trouvée</Text>
+                <Text style={styles.noReservationsText}>Aucune réservation</Text>
               ) : (
                 reservations.map((reservation) => {
                   const associationInfo = associationsData[reservation.associationId] || {};
                   return (
-                    <View key={reservation.id} style={styles.reservationCard}>
+                    <View
+                      key={reservation.id}
+                      style={[
+                        styles.reservationCard,
+                        reservation.status === "archived" && styles.archivedCard,
+                      ]}
+                    >
                       <View style={styles.headerContainer}>
                         <TouchableOpacity
-                          onPress={() => router.push({
-                            pathname: "/AssoPr",
-                            params: {
-                              associationId: reservation.associationId,
-                              association: JSON.stringify(associationInfo)
-                            }
-                          })}
+                          onPress={() =>
+                            router.push({
+                              pathname: "/AssoPr",
+                              params: {
+                                associationId: reservation.associationId,
+                                association: JSON.stringify(associationInfo),
+                              },
+                            })
+                          }
                         >
-                          <View style={[styles.avatarReservation, { backgroundColor: colors[reservation.associationId?.length % colors.length || 0] }]}>
+                          <View
+                            style={[
+                              styles.avatarReservation,
+                              { backgroundColor: colors[reservation.associationId?.length % colors.length || 0] },
+                            ]}
+                          >
                             <Text style={{ color: "black", fontSize: 25 }}>
                               {reservation.associationName
-                                .split(" ")
+                                ?.split(" ")
                                 .map((word) => word[0])
                                 .join("")
                                 .toUpperCase()
-                                .slice(0, 2)}
+                                .slice(0, 2) || "NA"}
                             </Text>
                           </View>
                         </TouchableOpacity>
@@ -404,7 +474,17 @@ export default function Echanges() {
                           <Text style={styles.reservationSubtitle}>
                             {reservation.restaurantVille} - {formatDate(reservation.annonceCreationTimestamp)}
                           </Text>
+                          {reservation.status === "archived" && (
+                            <Text style={styles.archivedText}>Archivé</Text>
+                          )}
                         </View>
+                        <TouchableOpacity
+                          style={styles.recoverButton}
+                          onPress={() => handleMarkAsRecovered(reservation.id, "reservation")}
+                        >
+                          <FontAwesome5 name="check-circle" size={24} color="green" />
+                          {/* <MaterialIcons name="check-circle" size={24} color="green" /> */}
+                        </TouchableOpacity>
                       </View>
 
                       <View style={styles.reservationContent}>
@@ -417,11 +497,11 @@ export default function Echanges() {
                           {reservation.target}
                         </Text>
                         <Text style={styles.reservationText}>
-                          <Text style={{ fontWeight: "bold" }}>Date Récupération: </Text>
+                          <Text style={{ fontWeight: "bold" }}>Date Récup.: </Text>
                           {formatDate(reservation.dateRecuperation)}
                         </Text>
                         <Text style={styles.reservationText}>
-                          <Text style={{ fontWeight: "bold" }}>Heure Récupération: </Text>
+                          <Text style={{ fontWeight: "bold" }}>Heure Récup.: </Text>
                           {formatTime(reservation.dateRecuperation)}
                         </Text>
                       </View>
@@ -431,7 +511,7 @@ export default function Echanges() {
                           style={styles.actionButton}
                           onPress={() => handleUpdateReservation(reservation.id)}
                         >
-                          <Text style={styles.actionButtonText}>Mettre à jour</Text>
+                          <Text style={styles.actionButtonText}>Modifier</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.actionButton}
@@ -448,36 +528,49 @@ export default function Echanges() {
           ) : (
             <View style={{ flex: 1, alignItems: "center" }}>
               <View style={styles.textContainer}>
-                <Text style={styles.text}>Vos actes bénévoles:</Text>
+                <Text style={styles.text}>Vos actes bénévoles :</Text>
               </View>
 
               {loadingActes ? (
                 <ActivityIndicator size="large" color="gray" />
               ) : actesBenevoles.length === 0 ? (
-                <Text style={styles.noReservationsText}>Aucun acte bénévole trouvé</Text>
+                <Text style={styles.noReservationsText}>Aucun acte bénévole</Text>
               ) : (
                 actesBenevoles.map((acte) => {
                   const associationInfo = associationsData[acte.associationId] || {};
                   return (
-                    <View key={acte.id} style={styles.reservationCard}>
+                    <View
+                      key={acte.id}
+                      style={[
+                        styles.reservationCard,
+                        acte.status === "archived" && styles.archivedCard,
+                      ]}
+                    >
                       <View style={styles.headerContainer}>
                         <TouchableOpacity
-                          onPress={() => router.push({
-                            pathname: "/AssoPr",
-                            params: {
-                              associationId: acte.associationId,
-                              association: JSON.stringify(associationInfo)
-                            }
-                          })}
+                          onPress={() =>
+                            router.push({
+                              pathname: "/AssoPr",
+                              params: {
+                                associationId: acte.associationId,
+                                association: JSON.stringify(associationInfo),
+                              },
+                            })
+                          }
                         >
-                          <View style={[styles.avatarReservation, { backgroundColor: colors[acte.associationId?.length % colors.length || 0] }]}>
+                          <View
+                            style={[
+                              styles.avatarReservation,
+                              { backgroundColor: colors[acte.associationId?.length % colors.length || 0] },
+                            ]}
+                          >
                             <Text style={{ color: "black", fontSize: 25 }}>
                               {acte.associationName
-                                .split(" ")
+                                ?.split(" ")
                                 .map((word) => word[0])
                                 .join("")
                                 .toUpperCase()
-                                .slice(0, 2)}
+                                .slice(0, 2) || "NA"}
                             </Text>
                           </View>
                         </TouchableOpacity>
@@ -489,7 +582,17 @@ export default function Echanges() {
                           <Text style={styles.reservationSubtitle}>
                             {formatDate(acte.createdAt)} - {formatTime(acte.createdAt)}
                           </Text>
+                          {acte.status === "archived" && (
+                            <Text style={styles.archivedText}>Archivé</Text>
+                          )}
                         </View>
+                        <TouchableOpacity
+                          style={styles.recoverButton}
+                          onPress={() => handleMarkAsRecovered(acte.id, "acte")}
+                        >
+                          <FontAwesome5 name="check-circle" size={24} color="green" />
+                          {/* <MaterialIcons name="check-circle" size={24} color="green" /> */}
+                        </TouchableOpacity>
                       </View>
 
                       <View style={styles.reservationContent}>
@@ -503,15 +606,21 @@ export default function Echanges() {
                         </Text>
                         <Text style={styles.reservationText}>
                           <Text style={{ fontWeight: "bold" }}>Statut: </Text>
-                          <Text style={{
-                            color: acte.status === "confirmé" ? "green" :
-                              acte.status === "refusé" ? "red" : "orange"
-                          }}>
-                            {acte.status}
+                          <Text
+                            style={{
+                              color:
+                                acte.aideStatus === "confirmé"
+                                  ? "green"
+                                  : acte.aideStatus === "refusé"
+                                  ? "red"
+                                  : "orange",
+                            }}
+                          >
+                            {acte.aideStatus}
                           </Text>
                         </Text>
                         <Text style={styles.reservationText}>
-                          <Text style={{ fontWeight: "bold" }}>Date de récupération: </Text>
+                          <Text style={{ fontWeight: "bold" }}>Date Récup.: </Text>
                           {formatDate(acte.dateRecuperation)} à {formatTime(acte.dateRecuperation)}
                         </Text>
                       </View>
@@ -521,19 +630,24 @@ export default function Echanges() {
                           style={[styles.actionButton, { backgroundColor: "#E5E5EA" }]}
                           onPress={() => handleViewActeDetails(acte.id)}
                         >
-                          <Text style={styles.actionButtonText}>Mettre à jour</Text>
+                          <Text style={styles.actionButtonText}>Modifier</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={[styles.actionButton, {
-                            backgroundColor: acte.status === "en attente" ? "#FFCDD2" : "#F5F5F5"
-                          }]}
-                          onPress={() => acte.status === "en attente" && handleDeleteActe(acte.id)}
-                          disabled={acte.status !== "en attente"}
+                          style={[
+                            styles.actionButton,
+                            {
+                              backgroundColor: acte.aideStatus === "en attente" ? "#FFCDD2" : "#F5F5F5",
+                            },
+                          ]}
+                          onPress={() => acte.aideStatus === "en attente" && handleDeleteActe(acte.id)}
+                          disabled={acte.aideStatus !== "en attente"}
                         >
-                          <Text style={[
-                            styles.actionButtonText,
-                            acte.status !== "en attente" && { color: "#9E9E9E" }
-                          ]}>
+                          <Text
+                            style={[
+                              styles.actionButtonText,
+                              acte.aideStatus !== "en attente" && { color: "#9E9E9E" },
+                            ]}
+                          >
                             Annuler
                           </Text>
                         </TouchableOpacity>
@@ -570,13 +684,14 @@ const styles = StyleSheet.create({
   },
   mainContent: {
     flex: 1,
+    backgroundColor: "transparent",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 15,
-    paddingVertical: 0,
+    paddingVertical: 10,
     marginTop: StatusBar.currentHeight || 15,
   },
   avatar: {
@@ -603,7 +718,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   title: {
-    fontSize: 35,
+    fontSize: 32,
     fontWeight: "bold",
     color: "black",
     textAlign: "center",
@@ -621,28 +736,29 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginVertical: 10,
-    backgroundColor: "rgba(255,255,255,0.5)",
-    paddingHorizontal: 0,
+    backgroundColor: "rgba(255,255,255,0.7)",
+    padding: 5,
   },
   tabButton: {
     paddingVertical: 12,
-    paddingHorizontal: 30,
+    paddingHorizontal: 20,
     backgroundColor: "#EAE5E5",
     borderWidth: 1,
-    borderColor: "black",
-    marginHorizontal: 0,
+    borderColor: "#000",
+    marginHorizontal: 5,
+    borderRadius: 5,
   },
   activeTab: {
     backgroundColor: "#EEE6D8",
   },
   tabText: {
     fontSize: 16,
-    fontWeight: "bold",
-    color: "black",
-    textAlign: "center",
+    fontWeight: "600",
+    color: "#000",
   },
   activeTabText: {
-    color: "black",
+    color: "#000",
+    fontWeight: "bold",
   },
   contentContainer: {
     paddingBottom: 50,
@@ -651,84 +767,127 @@ const styles = StyleSheet.create({
   textContainer: {
     backgroundColor: "#EAE5E5",
     width: width * 0.9,
-    height: 35,
-    borderRadius: 30,
-    marginTop: height * 0.04,
-    marginBottom: height * 0.04,
-    justifyContent: "center",
-    alignItems: "center",
+    padding: 10,
+    borderRadius: 20,
+    marginVertical: 15,
     borderWidth: 1,
-    alignSelf: "center",
+    borderColor: "#000",
+    alignItems: "center",
   },
   text: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "black",
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#000",
   },
   noReservationsText: {
-    textAlign: "center",
     fontSize: 18,
+    color: "#666",
     marginTop: 20,
-    color: "gray",
   },
   reservationCard: {
-    backgroundColor: "white",
-    borderRadius: 20,
+    backgroundColor: "#FFF",
+    borderRadius: 15,
     padding: 15,
     marginBottom: 15,
-    borderColor: "black",
     borderWidth: 1,
+    borderColor: "#000",
     width: width * 0.9,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    alignSelf: "center",
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  archivedCard: {
+    backgroundColor: "#F5F5F5",
+    opacity: 0.7,
   },
   headerContainer: {
     flexDirection: "row",
     alignItems: "flex-start",
+    position: "relative",
+    minHeight: 70,
+    paddingRight: 40, // Space for button
   },
   titleWrapper: {
     flex: 1,
     marginLeft: 10,
+    marginRight: 10,
   },
   reservationTitle: {
-    fontSize: 25,
+    fontSize: 22,
     fontWeight: "bold",
-    color: "black",
+    color: "#000",
   },
   reservationSubtitle: {
-    fontSize: 15,
-    color: "gray",
-    marginTop: 5,
+    fontSize: 14,
+    color: "#666",
+    marginTop: 3,
+  },
+  archivedText: {
+    fontSize: 14,
+    color: "#0000FF",
+    fontWeight: "600",
+    marginTop: 3,
   },
   reservationContent: {
     marginTop: 10,
-    marginBottom: 15,
+    marginBottom: 10,
   },
   reservationText: {
-    fontSize: 18,
+    fontSize: 16,
+    color: "#000",
     marginTop: 5,
-    color: "black",
   },
   reservationActions: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 10,
   },
   actionButton: {
     padding: 10,
     flex: 1,
     marginHorizontal: 5,
-    borderColor: "black",
     borderWidth: 1,
+    borderColor: "#000",
+    borderRadius: 5,
     alignItems: "center",
-    borderRadius: 7,
+    backgroundColor: "#F0F0F0",
   },
   actionButtonText: {
-    color: "black",
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#000",
+  },
+  recoverButton: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    padding: 8,
+    backgroundColor: "green", // Debug red
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#000",
+    zIndex: 1000,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 18,
+    color: "#FF0000",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  retryButton: {
+    padding: 10,
+    backgroundColor: "#007AFF",
+    borderRadius: 5,
+  },
+  retryButtonText: {
+    color: "#FFF",
     fontSize: 16,
     fontWeight: "600",
   },

@@ -49,15 +49,15 @@ export default function AnnoncesA() {
         if (userDetail?.uid) {
           const docRef = doc(db, "associations", userDetail.uid);
           const docSnap = await getDoc(docRef);
-          
+
           if (docSnap.exists()) {
             const data = docSnap.data();
             setAssociationData(data);
             console.log("Données association:", data);
-            
-            setUserDetail(prev => ({
+
+            setUserDetail((prev) => ({
               ...prev,
-              ...data
+              ...data,
             }));
           } else {
             console.log("Aucune donnée trouvée pour cette association");
@@ -73,17 +73,13 @@ export default function AnnoncesA() {
 
   useEffect(() => {
     if (route.params?.hideAnnonceId) {
-      setHiddenAnnonces(prev => 
-        [...new Set([...prev, route.params.hideAnnonceId])]
-      );
+      setHiddenAnnonces((prev) => [...new Set([...prev, route.params.hideAnnonceId])]);
       navigation.setParams({ hideAnnonceId: undefined });
     }
   }, [route.params]);
 
   const visibleAnnonces = useMemo(() => {
-    return annonces
-      .filter(a => !hiddenAnnonces.includes(a.id))
-      .reverse();
+    return annonces.filter((a) => !hiddenAnnonces.includes(a.id)).reverse();
   }, [annonces, hiddenAnnonces]);
 
   const toggleMenu = () => {
@@ -105,23 +101,37 @@ export default function AnnoncesA() {
 
   const handleReserverAnnonce = (annonce) => {
     const restaurantInfo = restaurantsData[annonce.userId] || {};
-    navigation.navigate("ReserverAnnonce", { 
+    let publicationDate = "Date inconnue";
+    let publicationTime = "Heure inconnue";
+
+    if (annonce.createdAt) {
+      let date;
+      if (annonce.createdAt.toDate) {
+        date = annonce.createdAt.toDate();
+      } else if (typeof annonce.createdAt === "string") {
+        date = new Date(annonce.createdAt);
+      } else if (annonce.createdAt instanceof Date) {
+        date = annonce.createdAt;
+      }
+      if (date && !isNaN(date)) {
+        publicationDate = date.toLocaleDateString("fr-FR");
+        publicationTime = date.toLocaleTimeString("fr-FR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+    }
+
+    navigation.navigate("ReserverAnnonce", {
       annonce: {
         ...annonce,
         restaurantName: restaurantInfo.name || "Nom inconnu",
         restaurantPhone: restaurantInfo.phone || "Téléphone inconnu",
         restaurantVille: restaurantInfo.ville || "Ville inconnue",
         restaurantImage: restaurantInfo.image || null,
-        publicationDate: annonce.createdAt 
-          ? new Date(annonce.createdAt.toDate()).toLocaleDateString("fr-FR") 
-          : "Date inconnue",
-        publicationTime: annonce.createdAt 
-          ? new Date(annonce.createdAt.toDate()).toLocaleTimeString("fr-FR", {
-              hour: "2-digit",
-              minute: "2-digit"
-            })
-          : "Heure inconnue"
-      } 
+        publicationDate,
+        publicationTime,
+      },
     });
   };
 
@@ -130,35 +140,37 @@ export default function AnnoncesA() {
     try {
       const annoncesCollection = collection(db, "annonces");
       const q = query(annoncesCollection, orderBy("createdAt", "asc"));
-      
+
       const snapshot = await getDocs(q);
       const annoncesList = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
-      
+
       setAnnonces(annoncesList);
-      
+
       const restaurantsRef = collection(db, "restaurants");
       const newRestaurantsData = {};
-      
-      const restaurantIds = [...new Set(annoncesList.map(a => a.userId).filter(Boolean))];
 
-      await Promise.all(restaurantIds.map(async (restaurantId) => {
-        if (restaurantId) {
-          try {
-            const docRef = doc(restaurantsRef, restaurantId);
-            const docSnap = await getDoc(docRef);
-            
-            if (docSnap.exists()) {
-              newRestaurantsData[restaurantId] = docSnap.data();
+      const restaurantIds = [...new Set(annoncesList.map((a) => a.userId).filter(Boolean))];
+
+      await Promise.all(
+        restaurantIds.map(async (restaurantId) => {
+          if (restaurantId) {
+            try {
+              const docRef = doc(restaurantsRef, restaurantId);
+              const docSnap = await getDoc(docRef);
+
+              if (docSnap.exists()) {
+                newRestaurantsData[restaurantId] = docSnap.data();
+              }
+            } catch (error) {
+              console.error(`Erreur lors du chargement du restaurant ${restaurantId}:`, error);
             }
-          } catch (error) {
-            console.error(`Erreur lors du chargement du restaurant ${restaurantId}:`, error);
           }
-        }
-      }));
-      
+        })
+      );
+
       setRestaurantsData(newRestaurantsData);
     } catch (error) {
       console.error("Erreur lors du rafraîchissement :", error);
@@ -174,13 +186,13 @@ export default function AnnoncesA() {
         const restaurantsRef = collection(db, "restaurants");
         const newRestaurantsData = {};
 
-        const restaurantIds = [...new Set(annonces.map(annonce => annonce.userId))];
+        const restaurantIds = [...new Set(annonces.map((annonce) => annonce.userId))];
 
         for (const restaurantId of restaurantIds) {
           if (restaurantId) {
             const docRef = doc(restaurantsRef, restaurantId);
             const docSnap = await getDoc(docRef);
-            
+
             if (docSnap.exists()) {
               newRestaurantsData[restaurantId] = docSnap.data();
             }
@@ -201,33 +213,36 @@ export default function AnnoncesA() {
   useEffect(() => {
     const annoncesCollection = collection(db, "annonces");
     const q = query(annoncesCollection, orderBy("createdAt", "asc"));
-  
+
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const annoncesList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-  
+      const annoncesList = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        console.log("Annonce ID:", doc.id, "createdAt:", data.createdAt); // Debug
+        return {
+          id: doc.id,
+          ...data,
+        };
+      });
+
       const validAnnonces = await Promise.all(
         annoncesList.map(async (annonce) => {
           if (!annonce.userId) return null;
-          
           const restaurantRef = doc(db, "restaurants", annonce.userId);
           const restaurantSnap = await getDoc(restaurantRef);
           return restaurantSnap.exists() ? annonce : null;
         })
       );
-  
+
       const filteredAnnonces = validAnnonces.filter(Boolean);
-  
+
       if (filteredAnnonces.length > annonces.length) {
         const newAnnonce = filteredAnnonces[filteredAnnonces.length - 1];
         setNewAnnonceId(newAnnonce.id);
       }
-  
+
       setAnnonces(filteredAnnonces);
     });
-  
+
     return () => unsubscribe();
   }, []);
 
@@ -254,8 +269,8 @@ export default function AnnoncesA() {
   const colorIndex = userDetail?.id ? userDetail.id.length % colors.length : 0;
 
   return (
-    <ImageBackground 
-      source={require('../../assets/images/cover.png')}
+    <ImageBackground
+      source={require("../../assets/images/cover.png")}
       style={styles.backgroundImage}
       resizeMode="cover"
     >
@@ -264,7 +279,7 @@ export default function AnnoncesA() {
           <View style={styles.overlay} />
         </TouchableWithoutFeedback>
       )}
-      
+
       <Animated.View style={styles.mainContent}>
         <View style={styles.header}>
           <TouchableOpacity onPress={toggleMenu}>
@@ -288,14 +303,14 @@ export default function AnnoncesA() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#70C7C6']}
+              colors={["#70C7C6"]}
             />
           }
         >
           <View style={styles.textContainer}>
             <Text style={styles.text}>Filtrer les annonces:</Text>
           </View>
-          
+
           {visibleAnnonces.map((annonce) => {
             const isNewAnnonce = annonce.id === newAnnonceId;
             const restaurantInfo = restaurantsData[annonce.userId] || {};
@@ -313,21 +328,22 @@ export default function AnnoncesA() {
               : "NA";
 
             return (
-              <View 
-                key={annonce.id} 
-                style={[
-                  styles.annonceCard,
-                  isNewAnnonce && styles.newAnnonce
-                ]}
+              <View
+                key={annonce.id}
+                style={[styles.annonceCard, isNewAnnonce && styles.newAnnonce]}
               >
                 <View style={styles.headerContainer}>
-                  <TouchableOpacity 
-                    onPress={() => navigation.navigate("RestoPr", { 
-                      restaurantId: annonce.userId,
-                      fromScreen: "AnnoncesA"
-                    })}
+                  <TouchableOpacity
+                    onPress={() =>
+                      navigation.navigate("RestoPr", {
+                        restaurantId: annonce.userId,
+                        fromScreen: "AnnoncesA",
+                      })
+                    }
                   >
-                    <View style={[styles.avatarAnnonce, { backgroundColor: colors[colorIndex] }]}>
+                    <View
+                      style={[styles.avatarAnnonce, { backgroundColor: colors[colorIndex] }]}
+                    >
                       <Text style={styles.avatarText}>{annonceInitials}</Text>
                     </View>
                   </TouchableOpacity>
@@ -339,26 +355,58 @@ export default function AnnoncesA() {
                 </Text>
 
                 <Text style={styles.annonceDate}>
-                  {annonce.createdAt
-                    ? new Date(annonce.createdAt.toDate()).toLocaleDateString("fr-FR", {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric'
-                      })
-                    : "Date inconnue"}
-                  {' - '}
-                  {annonce.createdAt
-                    ? new Date(annonce.createdAt.toDate()).toLocaleTimeString("fr-FR", {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })
-                    : "Heure inconnue"}
+                  {(() => {
+                    if (!annonce.createdAt) {
+                      return "Date inconnue";
+                    }
+                    let date;
+                    if (annonce.createdAt.toDate) {
+                      date = annonce.createdAt.toDate();
+                    } else if (typeof annonce.createdAt === "string") {
+                      date = new Date(annonce.createdAt);
+                    } else if (annonce.createdAt instanceof Date) {
+                      date = annonce.createdAt;
+                    } else {
+                      return "Date inconnue";
+                    }
+                    return !isNaN(date)
+                      ? date.toLocaleDateString("fr-FR", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })
+                      : "Date inconnue";
+                  })()}
+                  {" - "}
+                  {(() => {
+                    if (!annonce.createdAt) {
+                      return "Heure inconnue";
+                    }
+                    let date;
+                    if (annonce.createdAt.toDate) {
+                      date = annonce.createdAt.toDate();
+                    } else if (typeof annonce.createdAt === "string") {
+                      date = new Date(annonce.createdAt);
+                    } else if (annonce.createdAt instanceof Date) {
+                      date = annonce.createdAt;
+                    } else {
+                      return "Heure inconnue";
+                    }
+                    return !isNaN(date)
+                      ? date.toLocaleTimeString("fr-FR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "Heure inconnue";
+                  })()}
                 </Text>
-                
+
                 <View style={styles.detailsContainer}>
                   <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Offre:</Text>
-                    <Text style={styles.detailValue}>{annonce.quantite} {annonce.offre}</Text>
+                    <Text style={styles.detailValue}>
+                      {annonce.quantite} {annonce.offre}
+                    </Text>
                   </View>
                   <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Type:</Text>
@@ -367,13 +415,28 @@ export default function AnnoncesA() {
                   <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Expire le:</Text>
                     <Text style={styles.detailValue}>
-                      {annonce.expirationDate
-                        ? new Date(annonce.expirationDate).toLocaleDateString("fr-FR", {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric'
-                          })
-                        : "Date inconnue"}
+                      {(() => {
+                        if (!annonce.expirationDate) {
+                          return "Date inconnue";
+                        }
+                        let date;
+                        if (annonce.expirationDate.toDate) {
+                          date = annonce.expirationDate.toDate();
+                        } else if (typeof annonce.expirationDate === "string") {
+                          date = new Date(annonce.expirationDate);
+                        } else if (annonce.expirationDate instanceof Date) {
+                          date = annonce.expirationDate;
+                        } else {
+                          return "Date inconnue";
+                        }
+                        return !isNaN(date)
+                          ? date.toLocaleDateString("fr-FR", {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                            })
+                          : "Date inconnue";
+                      })()}
                     </Text>
                   </View>
                 </View>
@@ -389,7 +452,7 @@ export default function AnnoncesA() {
           })}
         </ScrollView>
       </Animated.View>
-      
+
       <SlideMenuA
         isOpen={isMenuOpen}
         toggleMenu={toggleMenu}
@@ -402,37 +465,37 @@ export default function AnnoncesA() {
 const styles = StyleSheet.create({
   backgroundImage: {
     flex: 1,
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: "rgba(0,0,0,0.3)",
     zIndex: 99,
   },
   mainContent: {
     flex: 1,
     zIndex: 1,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: "rgba(0,0,0,0.1)",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 15,
     paddingTop: 40,
-    width: '100%',
+    width: "100%",
     marginBottom: height * 0.02,
   },
   titleContainer: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: 'black',
-    textAlign: 'center',
+    fontWeight: "bold",
+    color: "black",
+    textAlign: "center",
     textShadowRadius: 10,
   },
   avatar: {
@@ -440,53 +503,53 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
   },
   initials: {
-    color: 'black',
+    color: "black",
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   scrollContent: {
     paddingBottom: 100,
   },
   textContainer: {
-    backgroundColor: '#DED8E1',
+    backgroundColor: "#DED8E1",
     paddingVertical: 8,
     paddingHorizontal: 20,
-    alignSelf: 'center',
+    alignSelf: "center",
     borderRadius: 20,
     marginVertical: 20,
     borderWidth: 1,
   },
   text: {
     fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    color: 'black',
+    fontWeight: "bold",
+    textAlign: "center",
+    color: "black",
   },
   annonceCard: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 20,
     padding: 20,
     marginBottom: 15,
     width: width * 0.9,
-    alignSelf: 'center',
-    shadowColor: '#000',
+    alignSelf: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
   },
   newAnnonce: {
-    borderColor: '#70C7C6',
+    borderColor: "#70C7C6",
     borderWidth: 2,
   },
   headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 10,
   },
   avatarAnnonce: {
@@ -494,65 +557,64 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems:'center',
+    borderColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 15,
   },
   avatarText: {
-    color: 'black',
+    color: "black",
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   annonceTitle: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     flex: 1,
-    marginTop:-25,
+    marginTop: -25,
   },
   annonceSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 5,
-    marginTop:-30,
-    marginLeft:70,
+    marginTop: -30,
+    marginLeft: 70,
   },
   annonceDate: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 15,
-    marginLeft:70,
+    marginLeft: 70,
   },
   detailsContainer: {
     marginVertical: 10,
   },
   detailItem: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 8,
   },
   detailLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#444',
+    fontWeight: "600",
+    color: "#444",
     width: 100,
   },
   detailValue: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     flex: 1,
   },
   actionButton: {
-    backgroundColor: '#70C7C6',
+    backgroundColor: "#70C7C6",
     padding: 15,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 10,
   },
   actionButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
 });
-

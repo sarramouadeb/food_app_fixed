@@ -11,7 +11,7 @@ import {
   TouchableWithoutFeedback,
   ImageBackground,
   Image,
-  StatusBar
+  StatusBar,
 } from "react-native";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import { useRouter } from "expo-router";
@@ -21,12 +21,9 @@ import {
   doc,
   onSnapshot,
   getDoc,
+  getDocs,
   query,
   orderBy,
-  getDocs,
-  where,
-  updateDoc,
-  arrayUnion,
 } from "firebase/firestore";
 import { db } from "../../config/FirebaseConfig";
 import cover from "../../assets/images/cover.png";
@@ -54,18 +51,18 @@ export default function Besoins() {
         try {
           const docRef = doc(db, "restaurants", userDetail.uid);
           const docSnap = await getDoc(docRef);
-          
+
           if (docSnap.exists()) {
             const data = docSnap.data();
             setRestaurantData(data);
-            setUserDetail(prev => ({
+            setUserDetail((prev) => ({
               ...prev,
               ...data,
               phone: data.phone || prev.phone,
               registerNb: data.registerNb || prev.registerNb,
               ville: data.ville || prev.ville,
               name: data.name || prev.name,
-              speciality: data.speciality || prev.speciality
+              speciality: data.speciality || prev.speciality,
             }));
           }
         } catch (error) {
@@ -82,7 +79,7 @@ export default function Besoins() {
   };
 
   const filterBesoins = (allBesoins, restaurantId) => {
-    return allBesoins.filter(besoin => {
+    return allBesoins.filter((besoin) => {
       if (!besoin.respondedRestaurants) return true;
       return !besoin.respondedRestaurants.includes(restaurantId);
     });
@@ -96,31 +93,42 @@ export default function Besoins() {
         const q = query(besoinsCollection, orderBy("createdAt", "desc"));
 
         const snapshot = await getDocs(q);
-        const besoinsList = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        const besoinsList = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            createdAt:
+              data.createdAt && typeof data.createdAt.toDate === "function"
+                ? data.createdAt.toDate()
+                : data.createdAt instanceof Date
+                ? data.createdAt
+                : new Date(), // Fallback to current date
+          };
+        });
 
         setBesoins(besoinsList);
         setFilteredBesoins(filterBesoins(besoinsList, userDetail.uid));
 
         const newAssociationsData = {};
-        const associationIds = [...new Set(besoinsList.map(besoin => besoin.userId))];
+        const associationIds = [...new Set(besoinsList.map((besoin) => besoin.userId))];
 
-        await Promise.all(associationIds.map(async (associationId) => {
-          if (associationId) {
-            try {
-              const docRef = doc(db, "associations", associationId);
-              const docSnap = await getDoc(docRef);
+        await Promise.all(
+          associationIds.map(async (associationId) => {
+            if (associationId) {
+              try {
+                const docRef = doc(db, "associations", associationId);
+                const docSnap = await getDoc(docRef);
 
-              if (docSnap.exists()) {
-                newAssociationsData[associationId] = docSnap.data();
+                if (docSnap.exists()) {
+                  newAssociationsData[associationId] = docSnap.data();
+                }
+              } catch (error) {
+                console.error(`Erreur lors du chargement de l'association ${associationId}:`, error);
               }
-            } catch (error) {
-              console.error(`Erreur lors du chargement de l'association ${associationId}:`, error);
             }
-          }
-        }));
+          })
+        );
 
         setAssociationsData(newAssociationsData);
       }
@@ -135,33 +143,46 @@ export default function Besoins() {
     const besoinsCollection = collection(db, "besoins");
     const q = query(besoinsCollection, orderBy("createdAt", "desc"));
 
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const besoinsList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setBesoins(besoinsList);
-      
-      if (userDetail?.uid) {
-        setFilteredBesoins(filterBesoins(besoinsList, userDetail.uid));
-      }
+    const unsubscribe = onSnapshot(
+      q,
+      async (snapshot) => {
+        const besoinsList = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            createdAt:
+              data.createdAt && typeof data.createdAt.toDate === "function"
+                ? data.createdAt.toDate()
+                : data.createdAt instanceof Date
+                ? data.createdAt
+                : new Date(), // Fallback to current date
+          };
+        });
+        setBesoins(besoinsList);
 
-      const newAssociationsData = {};
-      const associationIds = [...new Set(besoinsList.map(besoin => besoin.userId))];
+        if (userDetail?.uid) {
+          setFilteredBesoins(filterBesoins(besoinsList, userDetail.uid));
+        }
 
-      for (const associationId of associationIds) {
-        if (associationId) {
-          const docRef = doc(db, "associations", associationId);
-          const docSnap = await getDoc(docRef);
-          
-          if (docSnap.exists()) {
-            newAssociationsData[associationId] = docSnap.data();
+        const newAssociationsData = {};
+        const associationIds = [...new Set(besoinsList.map((besoin) => besoin.userId))];
+
+        for (const associationId of associationIds) {
+          if (associationId) {
+            const docRef = doc(db, "associations", associationId);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+              newAssociationsData[associationId] = docSnap.data();
+            }
           }
         }
-      }
 
-      setAssociationsData(newAssociationsData);
-    }, [userDetail?.uid]);
+        setAssociationsData(newAssociationsData);
+      },
+      [userDetail?.uid]
+    );
 
     return () => unsubscribe();
   }, [userDetail?.uid]);
@@ -189,15 +210,9 @@ export default function Besoins() {
       )}
 
       <Animated.View style={styles.mainContent}>
-        {/* Header avec marge supérieure ajustée */}
         <View style={[styles.header, { marginTop: StatusBar.currentHeight || 35 }]}>
           <TouchableOpacity onPress={toggleMenu}>
-            <MaterialIcons
-              name="menu"
-              size={35}
-              color="black"
-              style={styles.menuIcon}
-            />
+            <MaterialIcons name="menu" size={35} color="black" style={styles.menuIcon} />
           </TouchableOpacity>
 
           <View style={styles.titleContainer}>
@@ -214,11 +229,7 @@ export default function Besoins() {
         <ScrollView
           contentContainerStyle={styles.contentContainer}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="white"
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="white" />
           }
         >
           <View style={styles.textContainer}>
@@ -241,73 +252,98 @@ export default function Besoins() {
                     .slice(0, 2)
                 : "NA";
 
+              // Skip rendering if createdAt is invalid
+              if (!besoin.createdAt) {
+                console.warn(`Besoin ${besoin.id} has invalid createdAt`);
+                return null;
+              }
+
               return (
                 <View key={besoin.id} style={styles.besoinCard}>
                   <View style={styles.headerContainer}>
                     <TouchableOpacity
-                      onPress={() => router.push({
-                        pathname: "/AssoPr",
-                        params: { associationId: besoin.userId }
-                      })}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/AssoPr",
+                          params: { associationId: besoin.userId },
+                        })
+                      }
                     >
-                      <View style={[styles.avatarBesoin, { backgroundColor: colors[colorIndex] }]}>
-                        <Text style={{ color: "Black", fontSize: 25 }}>{associationInitials}</Text>
+                      <View
+                        style={[styles.avatarBesoin, { backgroundColor: colors[colorIndex] }]}
+                      >
+                        <Text style={{ color: "black", fontSize: 25 }}>
+                          {associationInitials}
+                        </Text>
                       </View>
                     </TouchableOpacity>
                     <View style={styles.titleWrapper}>
                       <Text style={styles.besoinTitle}>{associationName}</Text>
                       <Text style={styles.besoinSubtitle}>
                         {associationAddress} -{" "}
-                        {besoin.createdAt?.toDate().toLocaleDateString("fr-FR") || "Date inconnue"}{" "}
+                        {besoin.createdAt
+                          ? besoin.createdAt.toLocaleDateString("fr-FR")
+                          : "Date inconnue"}{" "}
                         -{" "}
-                        {besoin.createdAt?.toDate().toLocaleTimeString("fr-FR", {hour: '2-digit', minute:'2-digit'}) || "Heure inconnue"}
+                        {besoin.createdAt
+                          ? besoin.createdAt.toLocaleTimeString("fr-FR", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "Heure inconnue"}
                         {"\n"}
                         {associationPhone}
                       </Text>
                     </View>
                   </View>
                   <View style={styles.etatContainer}>
-                    {besoin.etat === 'Non urgent' && (
+                    {besoin.etat === "Non urgent" && (
                       <>
                         <Image source={nonurg} style={styles.etatImage} />
-                        <Text style={[styles.etatText, { color: '#F8E047' }]}>Non urgent</Text>
+                        <Text style={[styles.etatText, { color: "#F8E047" }]}>Non urgent</Text>
                       </>
                     )}
-                    {besoin.etat === 'Urgent' && (
+                    {besoin.etat === "Urgent" && (
                       <>
                         <Image source={urgent} style={styles.etatImage} />
-                        <Text style={[styles.etatText, { color: '#F48835' }]}>Urgent</Text>
+                        <Text style={[styles.etatText, { color: "#F48835" }]}>Urgent</Text>
                       </>
                     )}
-                    {besoin.etat === 'Très urgent' && (
+                    {besoin.etat === "Très urgent" && (
                       <>
                         <Image source={tresurg} style={styles.etatImage} />
-                        <Text style={[styles.etatText, { color: '#DD0000' }]}>Très urgent</Text>
+                        <Text style={[styles.etatText, { color: "#DD0000" }]}>Très urgent</Text>
                       </>
                     )}
                   </View>
                   <View style={styles.besoinContent}>
                     <Text style={styles.besoinText}>
-                      <Text style={{ fontWeight: 'bold' }}>Besoin: </Text>
-                      <Text style={styles.besoinValue}>{besoin.quantite} {besoin.besoin}</Text>
+                      <Text style={{ fontWeight: "bold" }}>Besoin: </Text>
+                      <Text style={styles.besoinValue}>
+                        {besoin.quantite} {besoin.besoin}
+                      </Text>
                     </Text>
                     <Text style={styles.besoinText}>
-                      <Text style={{ fontWeight: 'bold' }}>Type: </Text>
+                      <Text style={{ fontWeight: "bold" }}>Type: </Text>
                       <Text style={styles.besoinValue}>{besoin.type}</Text>
                     </Text>
                     <Text style={styles.besoinText}>
-                      <Text style={{ fontWeight: 'bold' }}>Cible: </Text>
+                      <Text style={{ fontWeight: "bold" }}>Cible: </Text>
                       <Text style={styles.besoinValue}>{besoin.cible}</Text>
                     </Text>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.aiderButton}
-                      onPress={() => router.push({
-                        pathname: "/BesoinForm",
-                        params: {
-                          besoin: JSON.stringify(besoin),
-                          association: JSON.stringify(associationsData[besoin.userId] || {})
-                        }
-                      })}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/BesoinForm",
+                          params: {
+                            besoin: JSON.stringify(besoin),
+                            association: JSON.stringify(
+                              associationsData[besoin.userId] || {}
+                            ),
+                          },
+                        })
+                      }
                     >
                       <Text style={styles.aiderButtonText}>Aider</Text>
                     </TouchableOpacity>
@@ -319,11 +355,7 @@ export default function Besoins() {
         </ScrollView>
       </Animated.View>
 
-      <SlideMenu 
-        isOpen={isMenuOpen}
-        toggleMenu={toggleMenu}
-        userDetail={currentUserData}
-      />
+      <SlideMenu isOpen={isMenuOpen} toggleMenu={toggleMenu} userDetail={currentUserData} />
     </ImageBackground>
   );
 }
@@ -331,22 +363,22 @@ export default function Besoins() {
 const styles = StyleSheet.create({
   backgroundImage: {
     flex: 1,
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   overlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: "rgba(0,0,0,0.3)",
     zIndex: 99,
   },
   mainContent: {
     flex: 1,
     zIndex: 1,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: "rgba(0,0,0,0.1)",
   },
   header: {
     flexDirection: "row",
@@ -360,15 +392,15 @@ const styles = StyleSheet.create({
     marginRight: width * 0.04,
   },
   titleContainer: {
-    alignSelf: 'center',
+    alignSelf: "center",
   },
   title: {
     fontSize: 40,
     fontWeight: "bold",
     color: "black",
     textAlign: "center",
-    textShadowOffset: {width: -1, height: 1},
-    textShadowRadius: 10
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
   },
   avatar: {
     width: 50,
@@ -386,13 +418,13 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: 50,
-    alignItems: 'center',
+    alignItems: "center",
   },
   textContainer: {
     backgroundColor: "#E5E5EA",
     width: width * 0.9,
     height: 35,
-    justifyContent: 'center',
+    justifyContent: "center",
     borderRadius: 30,
     marginTop: height * 0.04,
     marginBottom: height * 0.04,
@@ -402,12 +434,12 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 22,
     fontWeight: "bold",
-    textAlign: 'center',
-    color: 'black',
+    textAlign: "center",
+    color: "black",
   },
   besoinsListContainer: {
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
   },
   besoinCard: {
     backgroundColor: "white",
@@ -452,7 +484,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     marginTop: 0,
     marginRight: 12,
-    color: 'black',
+    color: "black",
   },
   avatarBesoin: {
     width: 60,
@@ -466,39 +498,39 @@ const styles = StyleSheet.create({
   etatContainer: {
     padding: 8,
     borderRadius: 10,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     width: 120,
     marginLeft: width * 0.5,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   etatImage: {
     width: 40,
     height: 40,
-    resizeMode: 'contain',
+    resizeMode: "contain",
   },
   etatText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     textAlign: "center",
     marginTop: 0,
   },
   besoinValue: {
     fontSize: 20,
-    flex: 1, 
+    flex: 1,
   },
   aiderButton: {
     backgroundColor: "#E5E5EA",
     padding: 10,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 15,
     borderWidth: 1,
-    borderColor: 'black',
+    borderColor: "black",
   },
   aiderButtonText: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: 'black',
+    fontWeight: "bold",
+    color: "black",
   },
 });
